@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Plan: Zero-Latency LLM Reasoning Extraction</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; padding: 32px; background: #0d1117; color: #cdd9e5; margin: 0; max-width: 900px; }
+
+        h1 { font-size: 20px; color: #e6edf3; margin-bottom: 4px; }
+        h2 { font-size: 15px; color: #e6edf3; margin-top: 32px; margin-bottom: 8px; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
+        h3 { font-size: 13px; color: #8b949e; margin-top: 20px; margin-bottom: 6px; }
+
+        .subtitle { font-size: 12px; color: #484f58; margin-bottom: 24px; }
+        .meta { font-size: 11px; color: #484f58; margin-bottom: 24px; }
+
+        p { font-size: 13px; color: #cdd9e5; line-height: 1.6; margin: 0 0 12px; }
+
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+              padding: 14px 16px; font-size: 12px; color: #cdd9e5; overflow-x: auto;
+              white-space: pre; margin: 10px 0 16px; line-height: 1.5; }
+
+        code { font-family: 'Consolas', 'Menlo', monospace; }
+        pre code { font-family: inherit; }
+
+        .kw  { color: #ff7b72; }
+        .fn  { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm  { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 12px 0 20px; }
+        th { text-align: left; color: #8b949e; border-bottom: 1px solid #30363d; padding: 6px 10px; font-weight: 600; }
+        td { padding: 6px 10px; border-bottom: 1px solid #21262d; color: #cdd9e5; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+
+        .badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em;
+                 padding: 2px 7px; border-radius: 3px; margin-right: 4px; }
+        .badge.cognition { background: #0d1b2e; color: #388bfd; }
+        .badge.retrieval { background: #0d2210; color: #39d353; }
+        .badge.control   { background: #2b2000; color: #d29922; }
+        .badge.action    { background: #3d1f00; color: #f0883e; }
+        .badge.memory    { background: #1f0e40; color: #bc8cff; }
+        .badge.request   { background: #1e1040; color: #9e7dff; }
+
+        .trace-example { background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+                         padding: 14px 16px; font-family: monospace; font-size: 12px;
+                         line-height: 1.8; margin: 10px 0 16px; }
+        .trace-example .entry { border-left: 3px solid #30363d; padding: 2px 0 2px 10px; margin-bottom: 4px; }
+        .trace-example .entry.cognition { border-left-color: #388bfd; }
+        .trace-example .entry.retrieval { border-left-color: #39d353; }
+        .trace-example .entry.control   { border-left-color: #d29922; }
+        .trace-example .entry.action    { border-left-color: #f0883e; }
+        .trace-example .entry.memory    { border-left-color: #bc8cff; }
+        .trace-example .new { background: #0d2d1a; border-left-color: #3fb950 !important; }
+        .trace-example .dim { color: #484f58; }
+
+        .callout { background: #161b22; border-left: 3px solid #388bfd; border-radius: 0 6px 6px 0;
+                   padding: 10px 14px; margin: 12px 0 16px; font-size: 12px; color: #8b949e; line-height: 1.6; }
+        .callout strong { color: #cdd9e5; }
+
+        .file-path { font-family: monospace; font-size: 11px; color: #8b949e;
+                     background: #1c2129; padding: 2px 6px; border-radius: 3px; }
+
+        .check-list { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+        .check-list li { padding: 4px 0; color: #cdd9e5; }
+        .check-list li::before { content: "□ "; color: #484f58; }
+    </style>
+</head>
+<body>
+
+<h1>Plan: Zero-Latency LLM Reasoning Extraction</h1>
+<div class="subtitle">Glass-Box Tracer enhancement — scl-core-v2 → chat-wonder-v2-api</div>
+<div class="meta">Created: 2026-05-25 &nbsp;|&nbsp; Status: Pending implementation</div>
+
+<h2>Problem</h2>
+<p>
+    The glass-box tracer currently shows the <em>what</em> of each R-CCAM stage — which tool was chosen,
+    what arguments were passed, what it returned. When a tool is selected, the tracer displays the tool's
+    declared description as a proxy for "why," but this is generic. It does not explain the LLM's actual
+    decision: <strong>what in the user's message or prior context led it to choose that specific tool at
+    that moment.</strong>
+</p>
+
+<h2>Solution</h2>
+<p>
+    After the LLM selects a tool, spin up a <strong>daemon background thread</strong> that makes a small
+    secondary LLM call (gpt-4o-mini, max 80 tokens) asking "why this tool, given what the user said?"
+    and broadcasts the answer as a <span class="badge cognition">◈ COGNITION</span> event.
+</p>
+<div class="callout">
+    <strong>Zero latency impact:</strong> The main function chain does not wait for the background thread.
+    It proceeds immediately to HITL check, duplicate check, and tool execution. The reasoning explanation
+    arrives in the tracer ~0.5–2 seconds later — concurrent with or just before the ACTION result.
+</div>
+
+<h2>File to Modify</h2>
+<p><span class="file-path">e:\Local Storage\Projects\Work Files\FORHU\Forhu Repos\chat-wonder-v2-api\the_server.py</span></p>
+<p>Two insertion points (one per function chain) + one new helper function. No HTML tracer changes needed.</p>
+
+<h2>Step 1 — Add Helper Function (~line 165, near <code>broadcast_trace</code>)</h2>
+
+<pre><code><span class="kw">def</span> <span class="fn">_async_explain_tool_choice</span>(tool_name, tool_desc, args, last_user_msg,
+                                 prior_outputs, openai_client, model, session_id):
+    <span class="str">"""Daemon thread — explains why the LLM chose this tool. Never blocks the main loop."""</span>
+    <span class="kw">try</span>:
+        facts_ctx = <span class="str">""</span>
+        <span class="kw">if</span> prior_outputs:
+            facts_ctx = <span class="str">"\n\nPrior tool results already in context:\n"</span> + <span class="str">"\n"</span>.join(
+                <span class="fn">f</span><span class="str">"  - {n}: {str(v)[:100]}"</span> <span class="kw">for</span> n, v <span class="kw">in</span> prior_outputs[<span class="num">-3</span>:]
+            )
+        prompt = (
+            <span class="fn">f</span><span class="str">"An AI assistant just decided to call `{tool_name}` "</span>
+            <span class="fn">f</span><span class="str">"with arguments: {json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else str(args)}\n\n"</span>
+            <span class="fn">f</span><span class="str">"Tool purpose: {tool_desc}\n\n"</span>
+            <span class="fn">f</span><span class="str">"The user said: \"{last_user_msg[:300]}\""</span>
+            <span class="fn">f</span><span class="str">"{facts_ctx}\n\n"</span>
+            <span class="str">"In exactly ONE sentence, explain why this tool call is the right next step. "</span>
+            <span class="str">"Be specific about what in the user's request or prior context triggered this choice."</span>
+        )
+        resp = openai_client.chat.completions.create(
+            model=model,
+            messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}],
+            max_tokens=<span class="num">80</span>,
+            temperature=<span class="num">0.0</span>,
+            stream=<span class="kw">False</span>,
+        )
+        explanation = resp.choices[<span class="num">0</span>].message.content.strip()
+        <span class="fn">broadcast_trace</span>(<span class="str">"cognition"</span>, <span class="fn">f</span><span class="str">"Reasoning: {explanation}"</span>, session_id)
+    <span class="kw">except</span> Exception:
+        <span class="kw">pass</span>  <span class="cm"># best-effort — never interrupt the main loop</span></code></pre>
+
+<h2>Step 2 — Trigger in <code>run_function_chain</code> (non-streaming, after line 577)</h2>
+<p>Insert immediately after the existing <span class="badge cognition">◈ COGNITION</span> broadcast for tool proposal:</p>
+
+<pre><code><span class="cm"># Background reasoning explanation — fires and forgets, zero latency impact</span>
+_last_user_msg = <span class="fn">next</span>(
+    (m[<span class="str">"content"</span>] <span class="kw">for</span> m <span class="kw">in</span> <span class="fn">reversed</span>(messages) <span class="kw">if</span> m.get(<span class="str">"role"</span>) == <span class="str">"user"</span>), <span class="str">""</span>
+)
+threading.Thread(
+    target=_async_explain_tool_choice,
+    args=(function_call[<span class="str">"name"</span>], _tool_desc, cur_args, _last_user_msg,
+          function_outputs, state.openai_client, _context.model, session_id),
+    daemon=<span class="kw">True</span>,
+).start()</code></pre>
+
+<h2>Step 3 — Trigger in <code>streaming_run_function_chain</code> (after line 748)</h2>
+<p>Identical block as Step 2.</p>
+
+<h2>Tracer Output After This Change</h2>
+<p>Query: <em>"What's the weather in Manila?"</em></p>
+
+<div class="trace-example">
+    <div class="entry cognition"><span class="badge cognition">◈ COGNITION</span> Cycle 1 — reasoning over 3 messages (model: gpt-4o-mini)</div>
+    <div class="entry retrieval"><span class="badge retrieval">◎ RETRIEVAL</span> RAG not used — LLM relies on training knowledge and conversation history</div>
+    <div class="entry cognition"><span class="badge cognition">◈ COGNITION</span> Mode: Default | 5 tool(s): get_weather, search_web, send_email…</div>
+    <div class="entry cognition"><span class="badge cognition">◈ COGNITION</span> Proposed tool call: `get_weather`<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Why this tool: "Retrieves current weather for a city…"<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Arguments passed: {"city": "Manila"}</div>
+    <div class="entry control"><span class="badge control">▣ CONTROL</span> APPROVED: `get_weather` — no prior identical call found</div>
+    <div class="entry action"><span class="badge action">▶ ACTION</span> Executing `get_weather`…</div>
+    <div class="entry cognition new"><span class="badge cognition">◈ COGNITION</span> <strong>Reasoning: The user explicitly asked for weather in Manila, so get_weather is called with "Manila" to retrieve live conditions.</strong> <span class="dim">← new — arrives ~1s later</span></div>
+    <div class="entry action"><span class="badge action">▶ ACTION</span> Result from `get_weather` (cycle 1): {"temp": 32, "condition": "Sunny"…}</div>
+    <div class="entry memory"><span class="badge memory">◉ MEMORY</span> Fact stored after cycle 1: `get_weather` result is now confirmed knowledge.</div>
+</div>
+
+<p style="font-size:12px; color:#484f58;">
+    The COGNITION reasoning event arrives between ACTION start and ACTION result.
+    Order in the tracer is arrival order, not logical order — honest about when the explanation was generated.
+</p>
+
+<h2>Trade-offs</h2>
+<table>
+    <tr>
+        <th></th>
+        <th>This approach (background thread)</th>
+        <th>Prompt chain-of-thought (alternative)</th>
+    </tr>
+    <tr>
+        <td>Main loop latency</td>
+        <td>Zero</td>
+        <td>+0.5–2s per tool call</td>
+    </tr>
+    <tr>
+        <td>Explanation quality</td>
+        <td>Good — uses actual user message + prior results</td>
+        <td>Better — LLM explains before it acts</td>
+    </tr>
+    <tr>
+        <td>Cost</td>
+        <td>1 extra gpt-4o-mini call per tool (~80 tokens)</td>
+        <td>Longer primary call, same model</td>
+    </tr>
+    <tr>
+        <td>Streaming client sees</td>
+        <td>Unchanged</td>
+        <td>Reasoning text in the chat stream</td>
+    </tr>
+    <tr>
+        <td>Implementation risk</td>
+        <td>Low — isolated thread, try/except wraps everything</td>
+        <td>Requires restructuring perform_chat</td>
+    </tr>
+</table>
+
+<h2>Verification Checklist</h2>
+<ul class="check-list">
+    <li>Start chat-wonder-v2-api</li>
+    <li>Open <code>scl-core-v2/run_glass_box_tracer.html</code> — dot goes green</li>
+    <li>Send a tool-triggering query via Swagger <code>/chat</code> (e.g. weather, email)</li>
+    <li>Confirm: a <code>◈ COGNITION  Reasoning: …</code> entry appears shortly after <code>▣ CONTROL APPROVED</code></li>
+    <li>Confirm the reasoning references the user's actual query, not just the tool description</li>
+    <li>Confirm the main Swagger response arrives with no added delay</li>
+    <li>Test a multi-tool chain — each tool call should produce its own reasoning entry</li>
+</ul>
+
+</body>
+</html>

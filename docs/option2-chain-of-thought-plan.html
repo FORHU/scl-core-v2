@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Option 2: Chain-of-Thought Reasoning — XAI Compliance Plan</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; padding: 40px; background: #0d1117; color: #cdd9e5; margin: 0; }
+        .page { max-width: 960px; margin: 0 auto; }
+
+        h1 { font-size: 22px; color: #e6edf3; margin-bottom: 4px; }
+        h2 { font-size: 16px; color: #e6edf3; margin-top: 40px; margin-bottom: 10px;
+             border-bottom: 1px solid #21262d; padding-bottom: 8px; }
+        h3 { font-size: 13px; color: #9e7dff; margin-top: 24px; margin-bottom: 8px;
+             text-transform: uppercase; letter-spacing: 0.06em; }
+        h4 { font-size: 13px; color: #8b949e; margin-top: 18px; margin-bottom: 6px; }
+
+        .subtitle { font-size: 13px; color: #484f58; margin-bottom: 6px; }
+        .meta { font-size: 11px; color: #484f58; margin-bottom: 32px; }
+
+        p { font-size: 13px; color: #cdd9e5; line-height: 1.7; margin: 0 0 14px; }
+        ul, ol { font-size: 13px; color: #cdd9e5; line-height: 1.7; margin: 0 0 14px; padding-left: 22px; }
+        li { margin-bottom: 5px; }
+
+        code { font-family: 'Consolas', 'Menlo', monospace; font-size: 12px;
+               background: #1c2129; padding: 1px 5px; border-radius: 3px; color: #a5d6ff; }
+
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+              padding: 16px 18px; font-size: 12px; color: #cdd9e5; overflow-x: auto;
+              white-space: pre; margin: 10px 0 20px; line-height: 1.6;
+              font-family: 'Consolas', 'Menlo', monospace; }
+
+        .kw  { color: #ff7b72; }
+        .fn  { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm  { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .var { color: #ffa657; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 12px 0 24px; }
+        th { text-align: left; color: #8b949e; border-bottom: 1px solid #30363d;
+             padding: 8px 12px; font-weight: 600; background: #161b22; }
+        td { padding: 8px 12px; border-bottom: 1px solid #21262d; color: #cdd9e5; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        td:first-child { color: #8b949e; white-space: nowrap; }
+
+        .badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em;
+                 padding: 2px 8px; border-radius: 3px; font-family: monospace; }
+        .badge.request   { background: #1e1040; color: #9e7dff; }
+        .badge.retrieval { background: #0d2210; color: #39d353; }
+        .badge.cognition { background: #0d1b2e; color: #388bfd; }
+        .badge.control   { background: #2b2000; color: #d29922; }
+        .badge.action    { background: #3d1f00; color: #f0883e; }
+        .badge.memory    { background: #1f0e40; color: #bc8cff; }
+        .badge.new       { background: #0a2e1a; color: #3fb950; border: 1px solid #238636; }
+        .badge.rejected  { background: #2d0f0f; color: #e05252; }
+
+        .trace-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+                       padding: 16px 18px; margin: 12px 0 20px; font-family: monospace; font-size: 12px; }
+        .t-entry { border-left: 3px solid #30363d; padding: 4px 0 4px 12px; margin-bottom: 6px; line-height: 1.6; }
+        .t-entry.request   { border-left-color: #9e7dff; }
+        .t-entry.retrieval { border-left-color: #39d353; }
+        .t-entry.cognition { border-left-color: #388bfd; }
+        .t-entry.control   { border-left-color: #d29922; }
+        .t-entry.action    { border-left-color: #f0883e; }
+        .t-entry.memory    { border-left-color: #bc8cff; }
+        .t-entry.new-cog   { border-left-color: #3fb950; background: #0a1f12; border-radius: 0 4px 4px 0; }
+        .t-entry .dim      { color: #484f58; }
+        .t-entry .highlight { color: #3fb950; font-weight: bold; }
+
+        .callout { border-radius: 6px; padding: 14px 18px; margin: 14px 0 20px; font-size: 13px; line-height: 1.6; }
+        .callout.blue   { background: #0d1b2e; border-left: 3px solid #388bfd; color: #cdd9e5; }
+        .callout.green  { background: #0a1f12; border-left: 3px solid #3fb950; color: #cdd9e5; }
+        .callout.yellow { background: #1f1a00; border-left: 3px solid #d29922; color: #cdd9e5; }
+        .callout.red    { background: #1f0a0a; border-left: 3px solid #e05252; color: #cdd9e5; }
+        .callout strong { color: #e6edf3; }
+
+        .file-tag { font-family: monospace; font-size: 11px; color: #8b949e;
+                    background: #1c2129; padding: 3px 8px; border-radius: 3px;
+                    border: 1px solid #30363d; display: inline-block; margin-bottom: 8px; }
+
+        .step-num { display: inline-flex; align-items: center; justify-content: center;
+                    width: 22px; height: 22px; border-radius: 50%; background: #21262d;
+                    color: #9e7dff; font-size: 11px; font-weight: 700; margin-right: 8px;
+                    flex-shrink: 0; }
+        .step-row { display: flex; align-items: baseline; gap: 0; margin-bottom: 6px; }
+        .step-row h3 { margin: 0; }
+
+        .check-list { list-style: none; padding: 0; margin: 0 0 16px; }
+        .check-list li { padding: 5px 0; color: #cdd9e5; font-size: 13px; display: flex; gap: 8px; }
+        .check-list li::before { content: "□"; color: #484f58; flex-shrink: 0; }
+
+        .open-q { background: #1f1a00; border: 1px solid #d29922; border-radius: 6px;
+                  padding: 14px 18px; margin: 16px 0; }
+        .open-q .q-num { font-size: 10px; font-weight: 700; color: #d29922; letter-spacing: 0.08em;
+                          margin-bottom: 6px; }
+        .open-q p { margin: 0 0 8px; font-size: 13px; }
+        .open-q .rec { font-size: 12px; color: #d29922; }
+
+        hr { border: none; border-top: 1px solid #21262d; margin: 40px 0; }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0 20px; }
+        .col-panel { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 14px 16px; }
+        .col-panel h4 { margin-top: 0; margin-bottom: 10px; font-size: 12px; }
+
+        .tag { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
+               letter-spacing: 0.06em; }
+        .tag.rejected { background: #2d0f0f; color: #e05252; }
+        .tag.chosen   { background: #0a2e1a; color: #3fb950; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+<h1>Option 2: Chain-of-Thought Reasoning</h1>
+<div class="subtitle">XAI Compliance Plan — chat-wonder-v2-api / scl-core-v2 Glass-Box Tracer</div>
+<div class="meta">Created: 2026-05-26 &nbsp;|&nbsp; Status: Pending implementation &nbsp;|&nbsp; Open questions: 3</div>
+
+<!-- ─────────────────────── WHY THIS EXISTS ─────────────────────── -->
+<h2>1. Why This Exists</h2>
+
+<p>
+    <strong>chat-wonder-v2-api is not a chatbot.</strong> It is an AI decision engine that powers
+    other apps — <strong>mirror-app</strong> (the StyleOS smart mirror) and <strong>law-ph</strong>
+    (Philippine legal AI). Those apps use chat-wonder's R-CCAM loop to make decisions that affect
+    real people: which laws apply to your case, what the mirror should recommend, what actions the
+    AI should take on your behalf.
+</p>
+<p>
+    The EU is enacting <strong>XAI — Explainable AI</strong> as enforceable law under the EU AI Act.
+    The core requirement: when an AI system makes a decision that affects a person, that person has
+    the right to a genuine explanation of why the decision was made — not a technical log, not a
+    summary written after the fact, but an account of the actual reasoning.
+</p>
+<p>
+    SCL (Supervised Cognitive Loop) and the glass-box tracer are the team's answer to this requirement.
+    The tracer already shows <em>what</em> happens at each R-CCAM stage. What it has not yet shown is
+    <em>why</em> the LLM chose each action — what in the user's specific request or prior context
+    led it to call a particular tool at that moment.
+</p>
+
+<div class="callout yellow">
+    <strong>The core problem:</strong> The current tracer shows the tool's description as a proxy for
+    "why" — e.g. <em>"Why this tool: Retrieves current weather for a city."</em> That is the tool's
+    general purpose, not the LLM's reasoning for this specific call. A regulator or affected user
+    reading that explanation is not learning anything about why the AI chose this tool for their
+    specific query.
+</div>
+
+<!-- ─────────────────────── WHY NOT OPTION 1 ─────────────────────── -->
+<h2>2. Why Option 1 Was Rejected</h2>
+
+<p>
+    Option 1 proposed spinning up a background thread that — after the LLM has already decided and
+    executed a tool call — makes a second, separate LLM call asking "why did it choose that tool?"
+    and broadcasts the result.
+</p>
+
+<div class="callout red">
+    <strong>Option 1 is legally a fabrication.</strong> A separate LLM call generating a plausible
+    explanation after the fact is not a record of the AI's reasoning — it is another AI making up
+    a story about what the first AI thought. Under XAI regulation, post-hoc rationalisation is
+    exactly what the law is designed to prevent. An auditor could rightfully reject it:
+    <em>"This explanation was not produced during the decision. It was written afterward by a
+    different process. It does not represent the AI's actual reasoning."</em>
+</div>
+
+<div class="two-col">
+    <div class="col-panel">
+        <h4><span class="tag rejected">REJECTED</span> &nbsp;Option 1 — Background Thread</h4>
+        <ul>
+            <li>Explanation generated after the tool call</li>
+            <li>Written by a separate LLM call</li>
+            <li>Zero latency impact on main loop</li>
+            <li>Plausible but not genuine</li>
+            <li>Not defensible under XAI audit</li>
+        </ul>
+    </div>
+    <div class="col-panel">
+        <h4><span class="tag chosen">CHOSEN</span> &nbsp;Option 2 — Chain-of-Thought</h4>
+        <ul>
+            <li>Explanation generated before the tool call</li>
+            <li>Written by the same LLM in the same inference</li>
+            <li>Slight latency increase (~20 tokens per tool cycle)</li>
+            <li>Genuine — this is what the LLM was thinking</li>
+            <li>Defensible under XAI audit</li>
+        </ul>
+    </div>
+</div>
+
+<!-- ─────────────────────── HOW IT WORKS ─────────────────────── -->
+<h2>3. How Option 2 Works — Plain English</h2>
+
+<p>
+    The LLM receives a new instruction as part of its system prompt every time it is called:
+</p>
+
+<div class="callout blue">
+    "Before calling any tool, write exactly one line starting with <code>REASON:</code> explaining
+    why you are making this call, referencing the user's specific request. Only write a REASON line
+    when calling a tool — never in a text-only response."
+</div>
+
+<p>
+    When the LLM decides to call a tool, it now produces output that looks like this (as it streams):
+</p>
+
+<pre>REASON: The user asked about weather in Manila so I need live temperature data.
+[function_call → get_weather(city="Manila")]</pre>
+
+<p>
+    chat-wonder-v2-api intercepts the <code>REASON:</code> line as it streams in:
+</p>
+<ol>
+    <li>It reads the line before it reaches the client (law-ph or mirror).</li>
+    <li>It broadcasts the reasoning text to the glass-box tracer as a <span class="badge cognition">◈ COGNITION</span> event.</li>
+    <li>It strips the <code>REASON:</code> line from the response — law-ph and mirror never see it.</li>
+    <li>The tool call executes as normal. The LLM's final answer to the user is unchanged.</li>
+</ol>
+
+<p>
+    The reasoning text is the LLM's own words, written in the same inference pass as the tool call.
+    It is not reconstructed. It is not approximated. It is what the LLM decided before it acted.
+</p>
+
+<!-- ─────────────────────── TECHNICAL DETAIL ─────────────────────── -->
+<h2>4. Technical Implementation — Detailed</h2>
+
+<p class="subtitle" style="color:#484f58; font-size:12px;">
+    All changes are in one file: <span class="file-tag">chat-wonder-v2-api / the_server.py</span>
+</p>
+
+<h3>Step 1 — System Prompt Instruction</h3>
+<p>
+    <strong>Where:</strong> <code>prepare_chat_messages()</code> — lines 428–474. This function
+    builds the message list sent to the LLM on every call. It already handles two cases:
+</p>
+<ul>
+    <li>If <code>addendum_override</code> is set (legal AI path): loads <code>legal_prompt.txt</code> as the system prompt.</li>
+    <li>If not set (general path): uses <code>generic_system_metaprompt</code>.</li>
+</ul>
+<p>
+    The XAI instruction must be added <strong>after</strong> both branches — so it applies to both
+    legal and general paths — but <strong>before</strong> the date context injection. The exact
+    insertion point is after line 461, before the date context line (~line 463):
+</p>
+
+<pre><span class="cm"># After the if/else block for addendum_override / generic_system_metaprompt</span>
+<span class="cm"># Before: system_content += f"\n\n[Context Info]\nCurrent Date: ..."</span>
+
+system_content += (
+    <span class="str">"\n\n[XAI Transparency Requirement]\n"</span>
+    <span class="str">"When you decide to call a tool, write exactly one line BEFORE the tool call:\n"</span>
+    <span class="str">"REASON: &lt;one sentence — why this specific tool, referencing the user's request&gt;\n"</span>
+    <span class="str">"Only write a REASON line when calling a tool. "</span>
+    <span class="str">"Never write it in a text-only response.\n"</span>
+    <span class="str">"The REASON line is for system transparency logging — do not mention it in your answer.\n"</span>
+)</pre>
+
+<div class="callout blue">
+    <strong>Why append after both branches?</strong> The legal path uses
+    <code>addendum_override</code> loaded from <code>legal_prompt.txt</code>, which completely
+    replaces the generic system prompt. If we only added the XAI instruction inside the
+    <code>if addendum_override</code> block, general queries would not get it — and vice versa.
+    Appending after both ensures universal coverage.
+</div>
+
+<h3>Step 2 — Extract REASON in <code>run_function_chain</code> (non-streaming)</h3>
+
+<p>
+    <strong>Where:</strong> Lines 516–642. This function is called by the <code>/chat</code>
+    (HTTP POST) endpoint.
+</p>
+<p>
+    <strong>How the current loop works:</strong> The LLM streams its response chunk by chunk.
+    Text content accumulates in <code>last_response</code>. Function call data accumulates in
+    <code>function_call["name"]</code> and <code>function_call["arguments"]</code>. After the
+    loop, the code checks: did we get a function call? If yes, execute it. If no, the text in
+    <code>last_response</code> is the final answer.
+</p>
+<p>
+    <strong>The change:</strong> After the stream loop ends, before checking
+    <code>if not function_call["name"]</code>, scan <code>last_response</code> for a
+    <code>REASON:</code> line. Extract it, broadcast it to the tracer, and remove it from
+    <code>last_response</code> so the client never sees it.
+</p>
+
+<pre><span class="cm"># --- INSERT after the stream loop (after line ~552), before the function_call check ---</span>
+
+<span class="cm"># XAI: extract REASON line if the LLM produced one before this tool call</span>
+_xai_reason = <span class="kw">None</span>
+<span class="kw">if</span> last_response:
+    _clean_lines = []
+    <span class="kw">for</span> _ln <span class="kw">in</span> last_response.<span class="fn">split</span>(<span class="str">"\n"</span>):
+        <span class="kw">if</span> _ln.<span class="fn">strip</span>().<span class="fn">startswith</span>(<span class="str">"REASON:"</span>) <span class="kw">and</span> _xai_reason <span class="kw">is</span> <span class="kw">None</span>:
+            _xai_reason = _ln.<span class="fn">strip</span>()[<span class="num">7</span>:].<span class="fn">strip</span>()  <span class="cm"># remove "REASON: " prefix</span>
+        <span class="kw">else</span>:
+            _clean_lines.<span class="fn">append</span>(_ln)
+    last_response = <span class="str">"\n"</span>.<span class="fn">join</span>(_clean_lines).<span class="fn">strip</span>()
+
+<span class="cm"># Only broadcast if a tool call actually follows (guard against spurious REASON in text)</span>
+<span class="kw">if</span> _xai_reason <span class="kw">and</span> function_call[<span class="str">"name"</span>]:
+    <span class="fn">broadcast_trace</span>(<span class="str">"cognition"</span>, <span class="fn">f</span><span class="str">"Reasoning: {_xai_reason}"</span>, session_id)
+
+<span class="cm"># --- existing code continues unchanged from here ---</span>
+<span class="kw">if not</span> function_call[<span class="str">"name"</span>]:
+    ...</pre>
+
+<p>
+    <strong>Why "only broadcast if a tool call follows"?</strong> The LLM might occasionally
+    write a <code>REASON:</code> line even when giving a text-only response (prompt instructions
+    aren't perfectly obeyed 100% of the time). If there's no tool call, the REASON is spurious
+    and should not appear in the tracer — it would be misleading.
+</p>
+
+<h3>Step 3 — Extract REASON in <code>streaming_run_function_chain</code> (generator)</h3>
+
+<p>
+    <strong>Where:</strong> Lines 685–803. This function is called by the <code>/chat-stream</code>
+    WebSocket endpoint. It is a Python generator — it <code>yield</code>s content chunks as they
+    arrive (<code>yield part</code> on line 723).
+</p>
+<p>
+    <strong>The problem:</strong> In the non-streaming version, we can wait for the full loop to
+    finish and then scan <code>last_response</code>. Here, text is yielded immediately to the
+    client chunk by chunk. If we yield the <code>REASON:</code> line before we've identified it,
+    the client (law-ph, mirror) would see it.
+</p>
+<p>
+    <strong>The solution — first-line buffering:</strong> We buffer incoming text until we have
+    one complete line (terminated by <code>\n</code>). We check that first complete line:
+</p>
+<ul>
+    <li>If it starts with <code>REASON:</code> — extract the text, broadcast to tracer, discard (don't yield to client). Then resume yielding normally for all subsequent content.</li>
+    <li>If it does not start with <code>REASON:</code> — flush the buffered content to the client immediately, then resume yielding normally.</li>
+</ul>
+<p>
+    This means we only buffer the minimum amount of text needed to inspect the first line.
+    Once that decision is made (REASON or not), streaming to the client continues at full speed.
+    For tool-calling cycles, the REASON line is the only text content produced before the
+    function call — so after discarding it, the stream has nothing left to yield until the next
+    cycle anyway.
+</p>
+
+<p><strong>Initialise these variables at the top of the <code>for _ in range(max_chains):</code> loop body:</strong></p>
+
+<pre><span class="var">_xai_buffer</span> = <span class="str">""</span>          <span class="cm"># accumulates text until first \n is found</span>
+<span class="var">_xai_first_line_done</span> = <span class="kw">False</span>  <span class="cm"># True once we've inspected the first line</span>
+<span class="var">_xai_reason</span> = <span class="kw">None</span>         <span class="cm"># holds the extracted REASON text if found</span></pre>
+
+<p><strong>Replace the content chunk handler (current line 720–723) with:</strong></p>
+
+<pre><span class="kw">elif</span> <span class="fn">hasattr</span>(delta, <span class="str">"content"</span>) <span class="kw">and</span> delta.content:
+    part = delta.content.<span class="fn">replace</span>(<span class="str">"~"</span>, <span class="str">"-"</span>)
+
+    <span class="kw">if</span> _xai_first_line_done:
+        <span class="cm"># First line already decided — yield normally</span>
+        last_response += part
+        <span class="kw">yield</span> part
+
+    <span class="kw">else</span>:
+        <span class="cm"># Still buffering — waiting for first complete line</span>
+        _xai_buffer += part
+
+        <span class="kw">if</span> <span class="str">"\n"</span> <span class="kw">in</span> _xai_buffer:
+            _xai_first_line_done = <span class="kw">True</span>
+            newline_pos = _xai_buffer.<span class="fn">index</span>(<span class="str">"\n"</span>)
+            first_line = _xai_buffer[:newline_pos]
+            remainder  = _xai_buffer[newline_pos + <span class="num">1</span>:]
+
+            <span class="kw">if</span> first_line.<span class="fn">strip</span>().<span class="fn">startswith</span>(<span class="str">"REASON:"</span>):
+                <span class="cm"># Extract — do NOT yield to client</span>
+                _xai_reason = first_line.<span class="fn">strip</span>()[<span class="num">7</span>:].<span class="fn">strip</span>()
+            <span class="kw">else</span>:
+                <span class="cm"># Not a REASON line — flush to client</span>
+                last_response += first_line + <span class="str">"\n"</span>
+                <span class="kw">yield</span> first_line + <span class="str">"\n"</span>
+
+            <span class="cm"># Flush any text that followed the first line on the same chunk</span>
+            <span class="kw">if</span> remainder:
+                last_response += remainder
+                <span class="kw">yield</span> remainder
+            _xai_buffer = <span class="str">""</span></pre>
+
+<p><strong>After the stream loop, broadcast if a tool call followed:</strong></p>
+
+<pre><span class="cm"># Flush any remaining buffer (incomplete line at end of stream — rare edge case)</span>
+<span class="kw">if</span> _xai_buffer <span class="kw">and not</span> _xai_first_line_done:
+    last_response += _xai_buffer
+    <span class="kw">yield</span> _xai_buffer
+
+<span class="cm"># XAI broadcast — only if a tool call followed the REASON line</span>
+<span class="kw">if</span> _xai_reason <span class="kw">and</span> function_call[<span class="str">"name"</span>]:
+    <span class="fn">broadcast_trace</span>(<span class="str">"cognition"</span>, <span class="fn">f</span><span class="str">"Reasoning: {_xai_reason}"</span>, session_id)
+
+<span class="cm"># --- existing code continues unchanged ---</span>
+<span class="kw">if not</span> function_call[<span class="str">"name"</span>]:
+    ...</pre>
+
+<!-- ─────────────────────── TRACER OUTPUT ─────────────────────── -->
+<h2>5. What the Tracer Shows — Before vs After</h2>
+
+<h4>Before (current state) — query: "What's the weather in Manila?"</h4>
+<div class="trace-panel">
+    <div class="t-entry request"><span class="badge request">⬤ REQUEST</span> &nbsp;New turn — session abc123… — input: What's the weather in Manila?</div>
+    <div class="t-entry retrieval"><span class="badge retrieval">◎ RETRIEVAL</span> &nbsp;RAG not used — LLM relies on training knowledge</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Mode: Default | 5 tool(s): get_weather, search_web, send_email…</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Cycle 1 — reasoning over 3 messages (model: gpt-4o-mini)</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Proposed tool call: <code>get_weather</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Why this tool: <span class="dim">"Retrieves current weather for a city…"</span> ← tool description, not LLM reasoning<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Arguments passed: {"city": "Manila"}</div>
+    <div class="t-entry control"><span class="badge control">▣ CONTROL</span> &nbsp;APPROVED: <code>get_weather</code></div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Executing <code>get_weather</code>…</div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Result: {"temp": 32, "condition": "Sunny", "humidity": 78}</div>
+    <div class="t-entry memory"><span class="badge memory">◉ MEMORY</span> &nbsp;Fact stored after cycle 1</div>
+</div>
+
+<h4>After (Option 2 implemented) — same query</h4>
+<div class="trace-panel">
+    <div class="t-entry request"><span class="badge request">⬤ REQUEST</span> &nbsp;New turn — session abc123… — input: What's the weather in Manila?</div>
+    <div class="t-entry retrieval"><span class="badge retrieval">◎ RETRIEVAL</span> &nbsp;RAG not used — LLM relies on training knowledge</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Mode: Default | 5 tool(s): get_weather, search_web, send_email…</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Cycle 1 — reasoning over 3 messages (model: gpt-4o-mini)</div>
+    <div class="t-entry new-cog"><span class="badge new">◈ COGNITION ★ NEW</span> &nbsp;<span class="highlight">Reasoning: The user asked about weather in Manila so I need live temperature data from the get_weather tool.</span> ← LLM's own words, written before the tool call</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Proposed tool call: <code>get_weather</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Arguments passed: {"city": "Manila"}</div>
+    <div class="t-entry control"><span class="badge control">▣ CONTROL</span> &nbsp;APPROVED: <code>get_weather</code></div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Executing <code>get_weather</code>…</div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Result: {"temp": 32, "condition": "Sunny", "humidity": 78}</div>
+    <div class="t-entry memory"><span class="badge memory">◉ MEMORY</span> &nbsp;Fact stored after cycle 1</div>
+</div>
+
+<div class="callout green">
+    <strong>Key difference:</strong> The Reasoning event appears <em>before</em> "Proposed tool call"
+    — because it was written by the LLM before the tool call, in the same inference. Chronological
+    order is honest and correct. This is a genuine record of decision-making, not a reconstruction.
+</div>
+
+<h4>Multi-tool chain — query: "Get the weather in Manila then email it to me"</h4>
+<div class="trace-panel">
+    <div class="t-entry request"><span class="badge request">⬤ REQUEST</span> &nbsp;input: Get the weather in Manila then email it to me</div>
+    <div class="t-entry retrieval"><span class="badge retrieval">◎ RETRIEVAL</span> &nbsp;RAG not used</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Cycle 1 — reasoning over 3 messages</div>
+    <div class="t-entry new-cog"><span class="badge new">◈ COGNITION ★</span> &nbsp;<span class="highlight">Reasoning: The user wants weather data first before I can compose the email, so I'll retrieve Manila's conditions now.</span></div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Proposed: <code>get_weather</code> | Args: {"city": "Manila"}</div>
+    <div class="t-entry control"><span class="badge control">▣ CONTROL</span> &nbsp;APPROVED</div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Result: {"temp": 32, "condition": "Sunny"}</div>
+    <div class="t-entry memory"><span class="badge memory">◉ MEMORY</span> &nbsp;Fact stored</div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Cycle 2 — reasoning over 5 messages</div>
+    <div class="t-entry new-cog"><span class="badge new">◈ COGNITION ★</span> &nbsp;<span class="highlight">Reasoning: I now have the weather data (32°C, Sunny) so I can fulfil the second part of the request by sending the email.</span></div>
+    <div class="t-entry cognition"><span class="badge cognition">◈ COGNITION</span> &nbsp;Proposed: <code>send_email</code> | Args: {"subject": "Manila Weather", "body": "…"}</div>
+    <div class="t-entry control"><span class="badge control">▣ CONTROL</span> &nbsp;APPROVED</div>
+    <div class="t-entry action"><span class="badge action">▶ ACTION</span> &nbsp;Result: {"sent": true}</div>
+    <div class="t-entry memory"><span class="badge memory">◉ MEMORY</span> &nbsp;Fact stored</div>
+</div>
+
+<p>
+    Each tool call in the chain gets its own Reasoning entry. Cycle 2 even references the result
+    of Cycle 1 — because the LLM has that data in context when it writes its reasoning.
+</p>
+
+<!-- ─────────────────────── CLIENT VISIBILITY ─────────────────────── -->
+<h2>6. What law-ph and mirror Actually Receive</h2>
+
+<p>
+    The <code>REASON:</code> line is intercepted and stripped before the response reaches the client.
+    The apps receive exactly what they received before this change — the LLM's final answer, clean
+    and unchanged.
+</p>
+
+<table>
+    <tr>
+        <th>Recipient</th>
+        <th>Sees REASON text?</th>
+        <th>Explanation</th>
+    </tr>
+    <tr>
+        <td>Glass-box tracer (scl-core-v2)</td>
+        <td style="color:#3fb950;">Yes — as COGNITION event</td>
+        <td>Broadcast via SSE before tool executes</td>
+    </tr>
+    <tr>
+        <td>law-ph frontend</td>
+        <td style="color:#e05252;">No — stripped</td>
+        <td>Intercepted during streaming before it reaches the WebSocket send</td>
+    </tr>
+    <tr>
+        <td>mirror-app</td>
+        <td style="color:#e05252;">No — stripped</td>
+        <td>Same — never passed through to the client</td>
+    </tr>
+    <tr>
+        <td>Swagger UI (/chat)</td>
+        <td style="color:#e05252;">No — stripped</td>
+        <td>Removed from last_response before returning the HTTP response body</td>
+    </tr>
+</table>
+
+<div class="callout yellow">
+    <strong>Open question:</strong> The EU AI Act's right to explanation targets <em>affected
+    individuals</em> — meaning law-ph users and mirror users, not developers watching the tracer.
+    Should the REASON text be shown to end users too, not just stripped to the developer tracer?
+    See Section 8.
+</div>
+
+<!-- ─────────────────────── LEGAL PERSONA ─────────────────────── -->
+<h2>7. The Legal AI Path — A Separate Problem</h2>
+
+<p>
+    The <code>[legal ai]</code> persona prefix routes queries to a completely different code path:
+    <code>run_legal_persona_ask()</code> → <code>legal_rag_ask()</code>. This path:
+</p>
+<ul>
+    <li>Does a pgvector similarity search to retrieve relevant Philippine laws</li>
+    <li>Passes the retrieved laws as context to a single, non-streaming LLM call</li>
+    <li>Returns the LLM's synthesised answer with citations</li>
+    <li><strong>Never enters the tool loop at all</strong> — there are no tool calls, so there are no <code>REASON:</code> lines</li>
+</ul>
+<p>
+    Option 2's chain-of-thought mechanism will have <strong>zero effect on the legal path</strong>.
+    The REASON instruction in the system prompt will never trigger because no tool call is made.
+</p>
+<p>
+    The legal path needs its own XAI mechanism — different from the tool-call REASON approach.
+    The most important explainability question for law-ph is: <em>why were these specific statutes
+    selected and applied to this query?</em> Relevance scores alone are not sufficient; a legal
+    user deserves to know what in their question matched what in the law.
+</p>
+<div class="callout yellow">
+    <strong>This is out of scope for the current implementation</strong> but is a required follow-up.
+    The legal path's XAI explanation needs to be planned separately.
+</div>
+
+<!-- ─────────────────────── OPEN QUESTIONS ─────────────────────── -->
+<h2>8. Open Questions — Grilling Points</h2>
+
+<div class="open-q">
+    <div class="q-num">OPEN QUESTION 1 — Most Important</div>
+    <p>
+        <strong>Should the REASON text be shown to end users (law-ph users, mirror users) or remain
+        tracer-only?</strong>
+    </p>
+    <p>
+        The EU AI Act's right to explanation is about informing <em>affected individuals</em>, not
+        developers. Stripping REASON from the client and keeping it in a developer dashboard satisfies
+        internal monitoring but may not satisfy the user-facing transparency requirement.
+    </p>
+    <p>
+        If shown to users: no stripping needed — law-ph and mirror receive the REASON line as part of
+        the AI's response text. Much simpler implementation. But requires law-ph and mirror to render
+        it appropriately (not just dump it inline).
+    </p>
+    <p>
+        If tracer-only: current plan — strip from client, broadcast to SSE only. Simpler for the
+        client apps, but the compliance story is weaker.
+    </p>
+    <div class="rec">Recommendation: show to end users. The regulation targets them, not the tracer.</div>
+</div>
+
+<div class="open-q">
+    <div class="q-num">OPEN QUESTION 2</div>
+    <p>
+        <strong>Should REASON text be persisted (logged to a database) or only broadcast over SSE?</strong>
+    </p>
+    <p>
+        SSE is ephemeral — if the tracer tab is closed, or the connection drops, or the server
+        restarts, the reasoning is lost. For a real XAI audit trail, you need a durable record:
+        who asked what, what the AI decided, what its reasoning was, when.
+    </p>
+    <p>
+        Persistence means writing to the existing PostgreSQL database (alongside session_id and
+        timestamp) every time a REASON is extracted. This is additional scope but may be required
+        for compliance.
+    </p>
+    <div class="rec">Recommendation: log to DB. SSE-only is sufficient for development; compliance requires durable records.</div>
+</div>
+
+<div class="open-q">
+    <div class="q-num">OPEN QUESTION 3</div>
+    <p>
+        <strong>What is the plan for the legal AI path's XAI requirement?</strong>
+    </p>
+    <p>
+        law-ph is arguably the highest-stakes context for XAI — legal decisions directly affect
+        people's rights. The current plan leaves the legal path without genuine reasoning
+        explanations. The citation display shows <em>which</em> laws were retrieved but not
+        <em>why they apply to this specific query</em>.
+    </p>
+    <div class="rec">Recommendation: plan a separate legal-path XAI mechanism — likely asking the LLM to explain each cited statute's relevance inline in the synthesised answer.</div>
+</div>
+
+<!-- ─────────────────────── VERIFICATION ─────────────────────── -->
+<h2>9. Verification Checklist</h2>
+
+<ul class="check-list">
+    <li>Start chat-wonder-v2-api (<code>run_server.cmd</code>)</li>
+    <li>Open <code>scl-core-v2/run_glass_box_tracer.html</code> in browser — dot goes green</li>
+    <li>Send a tool-triggering query via Swagger <code>POST /chat</code> (e.g. "What's the weather in Manila?")</li>
+    <li>Confirm: <code>◈ COGNITION  Reasoning: …</code> appears BEFORE <code>◈ COGNITION  Proposed tool call</code></li>
+    <li>Confirm the reasoning text references the user's actual query (not just the tool description)</li>
+    <li>Confirm the Swagger response body does NOT contain the REASON line</li>
+    <li>Send same query via <code>/chat-stream</code> WebSocket — confirm same REASON event in tracer</li>
+    <li>Confirm streaming response to client does NOT contain REASON line</li>
+    <li>Send a text-only query (no tool call expected) — confirm NO REASON line in tracer or response</li>
+    <li>Test a multi-tool chain — confirm each tool call produces its own Reasoning entry</li>
+    <li>Test with <code>[legal ai]</code> prefix — confirm legal path produces NO REASON line (not applicable)</li>
+    <li>Measure response latency before and after — REASON adds ~20 extra tokens to first LLM cycle</li>
+</ul>
+
+<hr>
+<p style="font-size:11px; color:#484f58; text-align:center;">
+    Generated by Claude Code for FORHU / chat-wonder-v2-api &nbsp;|&nbsp; 2026-05-26
+</p>
+
+</div>
+</body>
+</html>

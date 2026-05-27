@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SCL + Chat-Wonder v2: Full System Overview</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #fff;
+    color: #1a1a2e;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .cover {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 60%, #1a1f2e 100%);
+    color: #e6edf3;
+    padding: 60px 60px 50px;
+    page-break-after: always;
+  }
+  .cover h1 { font-size: 32px; margin: 0 0 10px; font-weight: 700; color: #fff; }
+  .cover .sub { font-size: 16px; color: #8b949e; margin-bottom: 36px; }
+  .cover .meta { font-size: 12px; color: #484f58; border-top: 1px solid #30363d; padding-top: 16px; }
+  .cover .meta span { margin-right: 28px; }
+  .cover .badge-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .cover .cbadge {
+    padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  }
+  .cover .cbadge.eu   { background: #003399; color: #fff; }
+  .cover .cbadge.xai  { background: #1e1040; color: #9e7dff; }
+  .cover .cbadge.scl  { background: #0d2818; color: #3fb950; }
+  .cover .cbadge.rccam { background: #0d1b2e; color: #388bfd; }
+
+  .page { padding: 50px 60px; max-width: 1000px; margin: 0 auto; }
+  h2 {
+    font-size: 22px; font-weight: 700; color: #0d1117;
+    border-bottom: 3px solid #0d1117; padding-bottom: 6px; margin-top: 48px; margin-bottom: 18px;
+  }
+  h3 { font-size: 16px; font-weight: 700; color: #161b22; margin-top: 32px; margin-bottom: 10px; }
+  h4 { font-size: 14px; font-weight: 700; color: #2d3a4a; margin-top: 20px; margin-bottom: 6px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin-bottom: 5px; }
+
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    background: #f0f2f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #c7254e;
+  }
+  pre {
+    background: #0d1117;
+    color: #cdd9e5;
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 14px 0 18px;
+    border-left: 4px solid #30363d;
+  }
+  pre .c  { color: #484f58; }
+  pre .kw { color: #ff7b72; }
+  pre .fn { color: #d2a8ff; }
+  pre .st { color: #a5d6ff; }
+  pre .cm { color: #8b949e; font-style: italic; }
+  pre .hl { background: #1e2a3a; display: block; margin: -1px -20px; padding: 1px 20px; }
+
+  .callout {
+    border-radius: 6px; padding: 14px 18px; margin: 16px 0;
+    border-left: 5px solid;
+    font-size: 13px;
+  }
+  .callout.info  { background: #e8f4fd; border-color: #2196F3; color: #1a3a5c; }
+  .callout.warn  { background: #fff8e1; border-color: #f59e0b; color: #4a3000; }
+  .callout.legal { background: #f3e8ff; border-color: #7c3aed; color: #2e1065; }
+  .callout.done  { background: #e8fdf0; border-color: #22c55e; color: #052e16; }
+  .callout.pend  { background: #fff3cd; border-color: #d29922; color: #4a2c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; }
+  th { background: #0d1117; color: #e6edf3; padding: 8px 12px; text-align: left; font-weight: 600; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fb; }
+
+  .arch-diagram {
+    background: #0d1117; color: #cdd9e5; border-radius: 8px;
+    padding: 24px 28px; font-family: monospace; font-size: 12px;
+    line-height: 1.7; margin: 18px 0;
+  }
+  .arch-diagram .green  { color: #3fb950; }
+  .arch-diagram .blue   { color: #388bfd; }
+  .arch-diagram .orange { color: #f0883e; }
+  .arch-diagram .purple { color: #bc8cff; }
+  .arch-diagram .yellow { color: #d29922; }
+  .arch-diagram .dim    { color: #484f58; }
+
+  .stage-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 24px;
+  }
+  .stage-card {
+    border-radius: 6px; padding: 12px 14px; font-size: 12px;
+  }
+  .stage-card .label { font-weight: 700; font-size: 11px; letter-spacing: 0.07em; margin-bottom: 5px; }
+  .stage-card p { margin: 0; line-height: 1.5; }
+
+  .s-request  { background: #1e1040; color: #9e7dff; }
+  .s-retrieval { background: #0d2210; color: #39d353; }
+  .s-cognition { background: #0d1b2e; color: #388bfd; }
+  .s-control  { background: #2b2000; color: #d29922; }
+  .s-action   { background: #3d1f00; color: #f0883e; }
+  .s-memory   { background: #1f0e40; color: #bc8cff; }
+
+  .tracer-box {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; font-family: monospace; font-size: 12px;
+    color: #cdd9e5; margin: 16px 0;
+  }
+  .te { border-left: 3px solid; padding: 5px 0 5px 12px; margin-bottom: 8px; }
+  .te.request   { border-color: #9e7dff; }
+  .te.retrieval { border-color: #39d353; }
+  .te.cognition { border-color: #388bfd; }
+  .te.control   { border-color: #d29922; }
+  .te.action    { border-color: #f0883e; }
+  .te.memory    { border-color: #bc8cff; }
+  .te .b { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
+  .te.request   .b { background: #1e1040; color: #9e7dff; }
+  .te.retrieval .b { background: #0d2210; color: #39d353; }
+  .te.cognition .b { background: #0d1b2e; color: #388bfd; }
+  .te.control   .b { background: #2b2000; color: #d29922; }
+  .te.action    .b { background: #3d1f00; color: #f0883e; }
+  .te.memory    .b { background: #1f0e40; color: #bc8cff; }
+  .te .ts { color: #484f58; font-size: 10px; margin-right: 4px; }
+
+  .lineref {
+    display: inline-block; font-size: 10px; background: #e8f4fd; color: #1a3a5c;
+    padding: 1px 6px; border-radius: 3px; font-family: monospace;
+    border: 1px solid #b3d4f0;
+    white-space: nowrap;
+  }
+
+  .page-break { page-break-before: always; }
+
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 36px 0; }
+  .toc { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin-bottom: 32px; }
+  .toc h3 { margin-top: 0; }
+  .toc ol { margin: 0; }
+  .toc li { margin-bottom: 3px; font-size: 13px; }
+
+  @media print {
+    .cover { page-break-after: always; }
+    h2 { page-break-before: auto; }
+    pre { page-break-inside: avoid; }
+    .callout { page-break-inside: avoid; }
+    .tracer-box { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ COVER ═══ -->
+<div class="cover">
+  <h1>chat-wonder-v2-api &amp; SCL</h1>
+  <div class="sub">Full System Overview — Architecture, XAI Compliance, and the R-CCAM Glass-Box Tracer</div>
+
+  <div class="badge-row">
+    <span class="cbadge eu">EU AI Act</span>
+    <span class="cbadge xai">XAI Compliance</span>
+    <span class="cbadge scl">SCL — Supervised Cognitive Loop</span>
+    <span class="cbadge rccam">R-CCAM Trace</span>
+  </div>
+
+  <div class="meta" style="margin-top: 48px;">
+    <span>Project: FORHU</span>
+    <span>Status: In Development</span>
+    <span>Milestone: VivaTech 2026 Demo — Paris, Jun 17–20</span>
+    <span>Prepared: May 2026</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ BODY ═══ -->
+<div class="page">
+
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li>What is chat-wonder-v2-api?</li>
+    <li>The EU AI Act Problem — Why Explainability Matters</li>
+    <li>What is SCL? — Supervised Cognitive Loop</li>
+    <li>The R-CCAM Cognitive Loop — Stage by Stage</li>
+    <li>How broadcast_trace() Works — Zero-Overhead Event Dispatch</li>
+    <li>The Relay Architecture — scl-core-v2 and the Browser</li>
+    <li>Complete Data Flow: One Chat Turn, End to End</li>
+    <li>The Glass-Box Tracer UI</li>
+    <li>Option 2 — Chain-of-Thought Reasoning (Pending Implementation)</li>
+    <li>Port Map and How to Run Everything</li>
+    <li>What Is Complete, What Is Pending</li>
+    <li>Appendix — Code Reference Index</li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>1. What is chat-wonder-v2-api?</h2>
+
+<p>
+  <strong>chat-wonder-v2-api is not a chatbot.</strong> It is an AI decision engine — a FastAPI
+  server that accepts a question from another application, reasons about it (potentially using
+  external tools), and returns an answer. The calling application owns the user interface; chat-wonder
+  owns the intelligence.
+</p>
+
+<p>Current clients of chat-wonder-v2-api:</p>
+<ul>
+  <li><strong>mirror-app</strong> — StyleOS Smart Mirror (Orange Pi 5 Pro hardware), AI-powered fashion and personal styling, built for live hardware demo at VivaTech 2026</li>
+  <li><strong>law-ph</strong> — Philippine legal AI assistant (Next.js), retrieves and interprets Philippine statutes using pgvector semantic search</li>
+  <li><strong>At least 3 additional apps</strong> not currently in the workspace, also scheduled for VivaTech 2026 demo</li>
+</ul>
+
+<div class="callout info">
+  <strong>Why this distinction matters for XAI</strong>
+  Because chat-wonder makes autonomous decisions that directly affect end users in high-stakes
+  domains (legal advice, medical advice, financial decisions), the EU AI Act classifies these
+  as <em>high-risk AI systems</em> — which require that affected individuals receive meaningful
+  explanations of why the AI made each decision. A chatbox used for entertainment does not.
+</div>
+
+<h3>Key technical facts</h3>
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Framework</td><td>FastAPI (Python), single file: <code>the_server.py</code> (~950 lines)</td></tr>
+  <tr><td>LLM</td><td>OpenAI <code>gpt-4o-mini</code> (chat), <code>text-embedding-3-small</code> (embeddings)</td></tr>
+  <tr><td>Port</td><td>8000</td></tr>
+  <tr><td>State</td><td>In-memory <code>ApiContext</code> singleton; per-session <code>ChatState</code>; sessions expire after 1 hour</td></tr>
+  <tr><td>Routing</td><td><code>POST /chat</code> (blocking), <code>POST /chat-stream</code> (streaming SSE), <code>POST /approve-tool</code> (HITL approval)</td></tr>
+  <tr><td>Tool framework</td><td>OpenAI function calling; user-defined tools loaded from <code>resources/functions/user_functions.py</code></td></tr>
+  <tr><td>Legal AI path</td><td>pgvector (PostgreSQL) semantic search against Philippine law corpus, routed when input is prefixed <code>[legal ai]</code></td></tr>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>2. The EU AI Act Problem — Why Explainability Matters</h2>
+
+<p>
+  The European Union AI Act, which came into force in 2024 and is being phased into enforcement through 2026, requires that
+  AI systems used in high-stakes contexts provide <strong>explainability</strong> — the ability for
+  affected individuals and regulators to understand why the AI produced a given output.
+</p>
+
+<p>This is not optional and not soft: it is a regulatory compliance obligation with fines.</p>
+
+<p>The law's requirements, translated to our system:</p>
+
+<ol>
+  <li>
+    <strong>Transparency</strong> — When the AI decides to retrieve a legal document, call a weather
+    API, or search the web, there must be a recorded reason for that decision in the AI's own words,
+    not a post-hoc reconstruction by a different system.
+  </li>
+  <li>
+    <strong>Auditability</strong> — The reasoning trail must be observable and preservable, not just
+    a live console log.
+  </li>
+  <li>
+    <strong>Authenticity</strong> — The explanation must be the AI's genuine reasoning at the moment
+    of the decision. An explanation written after the fact by a separate LLM call ("what might this AI
+    have been thinking?") is legally equivalent to a fabrication and would fail compliance review.
+  </li>
+</ol>
+
+<div class="callout legal">
+  <strong>Critical compliance boundary</strong>
+  Options that use a background thread to generate a plausible-sounding explanation after the AI has
+  already made its decision are <em>NOT</em> XAI-compliant. They produce text that describes what the
+  AI could have been thinking, not what it was thinking. This approach was considered and rejected
+  for this system.
+</div>
+
+<p>
+  This is why the glass-box tracer was built — and why Option 2 (chain-of-thought, described in
+  Section 9) is the only acceptable approach for capturing the AI's reasoning.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>3. What is SCL? — Supervised Cognitive Loop</h2>
+
+<p>
+  <strong>SCL (Supervised Cognitive Loop)</strong> is the observability and XAI compliance framework
+  built alongside chat-wonder-v2-api. It consists of two components:
+</p>
+
+<ul>
+  <li>
+    <strong>Instrumentation inside chat-wonder-v2-api</strong> — A function called
+    <code>broadcast_trace()</code> is called at each significant decision point inside the AI loop.
+    It records what the AI was doing and why, with zero impact on the AI's actual response.
+  </li>
+  <li>
+    <strong>scl-core-v2</strong> — A separate FastAPI server that subscribes to chat-wonder's
+    event stream, relays those events to browser clients, and serves the Glass-Box Tracer UI.
+  </li>
+</ul>
+
+<p>
+  Together, these two components give a real-time, unfiltered window into every decision the AI makes
+  during a chat turn — before it returns an answer to the calling application.
+</p>
+
+<div class="arch-diagram">
+<span class="green">law-ph</span> ──────────────────────────────────────────────────────────────────────────────────────┐<br>
+<span class="blue">mirror-app</span> ─────────────────────────────────────────────────────────────────────────────────┤<br>
+<span class="purple">other apps (3+)</span> ──────────────────────────────────────────────────────────────────────────┤<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌───────────────────┐<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span class="green">chat-wonder-v2-api</span> │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ port 8000         │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ R-CCAM loop inside│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ broadcast_trace() │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└────────┬──────────┘<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span class="yellow">GET /trace-stream</span> (SSE)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌───────────────────────────┐<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span class="blue">scl-core-v2 tracer server</span> │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ port 8004         relay   │<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─────────────┬─────────────┘<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span class="yellow">GET /trace-stream</span> (SSE fan-out)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="orange">Browser: Glass-Box Tracer UI</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dim">http://127.0.0.1:8004/</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>4. The R-CCAM Cognitive Loop — Stage by Stage</h2>
+
+<p>
+  Every chat request that enters chat-wonder-v2-api is processed through a pipeline we call the
+  <strong>R-CCAM loop</strong>:
+  <strong>R</strong>equest → <strong>C</strong>ognition → <strong>C</strong>ontrol →
+  <strong>A</strong>ction → <strong>M</strong>emory, with a <strong>Retrieval</strong> step
+  before the first Cognition cycle.
+</p>
+
+<div class="stage-grid">
+  <div class="stage-card s-request">
+    <div class="label">⬤ REQUEST</div>
+    <p>A new chat turn has arrived. Records session ID and the first 120 characters of user input.
+       This is the entry point for every /chat and /chat-stream call.</p>
+  </div>
+  <div class="stage-card s-retrieval">
+    <div class="label">◎ RETRIEVAL</div>
+    <p>RAG (Retrieval-Augmented Generation) results injected into the LLM context.
+       If embeddings are loaded, reports which documents were retrieved and their relevance scores.
+       Lists all available tools before reasoning begins.</p>
+  </div>
+  <div class="stage-card s-cognition">
+    <div class="label">◈ COGNITION</div>
+    <p>The LLM is reasoning. Reports each cycle number, the tool the LLM proposed to call
+       (including the tool's description), the arguments it constructed, and the final text
+       produced when no more tool calls are needed.</p>
+  </div>
+  <div class="stage-card s-control">
+    <div class="label">▣ CONTROL</div>
+    <p>The loop's decision point. Either APPROVED (tool call is new — proceed), BLOCKED (duplicate
+       call with same args — inject reminder), or HITL GATE (human approval required — loop pauses
+       and waits for /approve-tool).</p>
+  </div>
+  <div class="stage-card s-action">
+    <div class="label">▶ ACTION</div>
+    <p>The approved tool is actually executed. Reports "Executing…" before the call and the full
+       result (up to 300 chars) after. This is the only stage where real-world side effects can occur
+       (web search, API calls, database queries).</p>
+  </div>
+  <div class="stage-card s-memory">
+    <div class="label">◉ MEMORY</div>
+    <p>After each tool result, the fact is stored in the LLM message context as a [Memory Fact]
+       system message. All future reasoning cycles in the same turn treat this as ground truth
+       and will not re-call the same tool with the same args.</p>
+  </div>
+</div>
+
+<p>
+  The loop repeats Cognition → Control → Action → Memory up to 7 times (<code>max_chains=7</code>)
+  or until the LLM produces a final text response instead of a tool call. Then the answer is
+  returned to the calling application.
+</p>
+
+<h3>Legal AI path — different loop</h3>
+<p>
+  When a query is prefixed with <code>[legal ai]</code>, the system routes directly to a
+  <strong>single-pass legal RAG pipeline</strong> — it does not use the tool loop. The AI performs
+  a pgvector semantic search against the Philippine law corpus, then synthesizes an answer in one
+  LLM call. This path emits REQUEST, RETRIEVAL, and COGNITION events but no CONTROL, ACTION, or
+  MEMORY events (because there are no tool calls). Separate XAI coverage for this path is planned
+  but not yet implemented.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>5. How broadcast_trace() Works — Zero-Overhead Event Dispatch</h2>
+
+<p>
+  The key design requirement: the tracer must not slow down chat-wonder-v2-api's response to the
+  calling application. The solution is <code>broadcast_trace()</code>, a function that pushes an
+  event to an in-memory asyncio queue in microseconds — with no network calls, no disk I/O, and
+  no blocking.
+</p>
+
+<p>Source: <span class="lineref">the_server.py lines 142–187</span></p>
+
+<pre>
+<span class="cm"># the_server.py — line 140</span>
+<span class="kw">_trace_queues</span>: set = set()            <span class="cm"># one asyncio.Queue per SSE subscriber</span>
+
+<span class="kw">def</span> <span class="fn">broadcast_trace</span>(event_type: str, text: str, session_id: str = None):
+    data = json.dumps({
+        <span class="st">"type"</span>:       event_type,       <span class="cm"># request|retrieval|cognition|control|action|memory</span>
+        <span class="st">"text"</span>:       text.strip(),
+        <span class="st">"session_id"</span>: session_id,
+        <span class="st">"ts"</span>:         time.time(),      <span class="cm"># Unix timestamp for ordering in UI</span>
+    })
+    <span class="kw">def</span> <span class="fn">_put_all</span>():
+        <span class="kw">for</span> q <span class="kw">in</span> list(_trace_queues):
+            <span class="kw">try</span>:
+                q.put_nowait(data)            <span class="cm"># non-blocking; drops event if queue full</span>
+            <span class="kw">except</span> asyncio.QueueFull:
+                <span class="kw">pass</span>                         <span class="cm"># never block the LLM thread</span>
+    <span class="kw">try</span>:
+        loop = asyncio.get_event_loop()
+        <span class="kw">if</span> loop.is_running():
+            <span class="kw">import</span> threading
+            <span class="kw">if</span> threading.current_thread() <span class="kw">is not</span> threading.main_thread():
+                loop.call_soon_threadsafe(_put_all)   <span class="cm"># safe cross-thread delivery</span>
+                <span class="kw">return</span>
+    <span class="kw">except</span> RuntimeError:
+        <span class="kw">pass</span>
+    _put_all()
+</pre>
+
+<h3>Why call_soon_threadsafe is necessary</h3>
+<p>
+  The LLM reasoning loop (both <code>run_function_chain</code> and
+  <code>streaming_run_function_chain</code>) runs in a thread-pool worker, not the main asyncio
+  event loop thread. asyncio queues are not thread-safe. If a worker thread calls
+  <code>q.put_nowait()</code> directly while the event loop thread is reading the same queue, the
+  result is undefined behavior. <code>loop.call_soon_threadsafe()</code> schedules the put operation
+  to execute on the event loop thread at its next available moment — eliminating the race condition.
+</p>
+
+<h3>The SSE endpoint — chat-wonder's side</h3>
+<p>Source: <span class="lineref">the_server.py lines 168–187</span></p>
+<pre>
+<span class="cm"># the_server.py — line 168</span>
+@app.get(<span class="st">"/trace-stream"</span>, summary=<span class="st">"Glass-box SSE — consumed by scl-core-v2"</span>)
+<span class="kw">async def</span> <span class="fn">trace_stream</span>():
+    <span class="kw">async def</span> <span class="fn">_generator</span>():
+        q = asyncio.Queue(maxsize=200)
+        _trace_queues.add(q)         <span class="cm"># register this subscriber</span>
+        <span class="kw">try</span>:
+            <span class="kw">yield</span> <span class="st">'data: {"type":"connected"}\n\n'</span>
+            <span class="kw">while True</span>:
+                <span class="kw">try</span>:
+                    data = <span class="kw">await</span> asyncio.wait_for(q.get(), timeout=25)
+                    <span class="kw">yield</span> f<span class="st">"data: {data}\n\n"</span>
+                <span class="kw">except</span> asyncio.TimeoutError:
+                    <span class="kw">yield</span> <span class="st">'data: {"type":"ping"}\n\n'</span>  <span class="cm"># keep-alive</span>
+        <span class="kw">except</span> asyncio.CancelledError:
+            <span class="kw">pass</span>
+        <span class="kw">finally</span>:
+            _trace_queues.discard(q)    <span class="cm"># clean up on disconnect</span>
+    <span class="kw">return</span> StreamingResponse(_generator(), media_type=<span class="st">"text/event-stream"</span>,
+        headers={<span class="st">"Cache-Control"</span>: <span class="st">"no-cache"</span>, <span class="st">"Access-Control-Allow-Origin"</span>: <span class="st">"*"</span>})
+</pre>
+
+<div class="callout info">
+  <strong>Design note: one subscriber, not many</strong>
+  This endpoint in chat-wonder-v2-api is not intended for browser clients. Only one entity ever
+  subscribes to it: the scl-core-v2 tracer server. That keeps chat-wonder's subscriber set
+  tiny (almost always 1 queue) while scl-core-v2 handles fan-out to however many browsers
+  are open.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>6. The Relay Architecture — scl-core-v2 and the Browser</h2>
+
+<p>
+  scl-core-v2's tracer server (<code>scl_tracer_server.py</code>) does three things:
+</p>
+<ol>
+  <li>On startup, launches a background task that subscribes to chat-wonder's <code>/trace-stream</code></li>
+  <li>Forwards every event from that upstream stream into its own set of asyncio queues</li>
+  <li>Serves those events to browser clients via its own <code>/trace-stream</code> endpoint</li>
+</ol>
+
+<p>Source: <span class="lineref">scl_tracer_server.py (full file)</span></p>
+
+<pre>
+<span class="cm"># scl-core-v2/scl_tracer_server.py</span>
+
+CHAT_WONDER_TRACE_URL = <span class="st">"http://127.0.0.1:8000/trace-stream"</span>
+_trace_queues: set = set()
+
+<span class="kw">async def</span> <span class="fn">_relay_from_chat_wonder</span>():
+    <span class="cm">"""Permanent background task. One upstream connection, N browser fans-out."""</span>
+    <span class="kw">while True</span>:
+        <span class="kw">try</span>:
+            <span class="kw">async with</span> httpx.AsyncClient(timeout=None) <span class="kw">as</span> client:
+                <span class="kw">async with</span> client.stream(<span class="st">"GET"</span>, CHAT_WONDER_TRACE_URL) <span class="kw">as</span> response:
+                    <span class="kw">async for</span> line <span class="kw">in</span> response.aiter_lines():
+                        <span class="kw">if not</span> line.startswith(<span class="st">"data: "</span>):
+                            <span class="kw">continue</span>
+                        payload = line[6:]          <span class="cm"># strip "data: " prefix</span>
+                        <span class="kw">for</span> q <span class="kw">in</span> list(_trace_queues):
+                            <span class="kw">try</span>:
+                                q.put_nowait(payload)
+                            <span class="kw">except</span> asyncio.QueueFull:
+                                <span class="kw">pass</span>
+        <span class="kw">except</span> Exception:
+            <span class="kw">await</span> asyncio.sleep(3)   <span class="cm"># auto-reconnect on any failure</span>
+
+@app.on_event(<span class="st">"startup"</span>)
+<span class="kw">async def</span> <span class="fn">startup</span>():
+    asyncio.create_task(_relay_from_chat_wonder())
+
+@app.get(<span class="st">"/"</span>)
+<span class="kw">async def</span> <span class="fn">serve_tracer</span>():
+    html_path = Path(__file__).parent / <span class="st">"run_glass_box_tracer.html"</span>
+    <span class="kw">return</span> HTMLResponse(html_path.read_text(encoding=<span class="st">"utf-8"</span>))
+</pre>
+
+<h3>Why scl-core-v2 holds the /trace-stream, not chat-wonder</h3>
+
+<p>
+  An earlier design had browsers connecting directly to chat-wonder's <code>/trace-stream</code>.
+  This had two problems:
+</p>
+<ul>
+  <li>
+    <strong>Browser security block</strong> — Opening the tracer HTML directly from the filesystem
+    gives the page a <code>null</code> (<code>file://</code>) origin. Browsers block SSE connections
+    from <code>null</code> origin pages even when the server sends <code>Access-Control-Allow-Origin: *</code>
+    in some configurations.
+  </li>
+  <li>
+    <strong>Wrong load distribution</strong> — If 10 browsers are watching the tracer simultaneously,
+    chat-wonder would hold 10 open asyncio queues and deliver every event 10 times. The relay pattern
+    means chat-wonder holds exactly 1 queue regardless of how many browsers are connected.
+  </li>
+</ul>
+
+<p>
+  With scl-core-v2 serving the HTML at <code>http://127.0.0.1:8004/</code>, the browser page
+  has an HTTP origin and connects to the SSE stream on the same host and port — no CORS issue.
+  chat-wonder holds one persistent subscriber (scl-core-v2); scl-core-v2 handles fan-out
+  to all browsers.
+</p>
+
+<h3>Port map</h3>
+<table>
+  <tr><th>Service</th><th>Port</th><th>Start command</th></tr>
+  <tr>
+    <td>chat-wonder-v2-api (main AI server)</td>
+    <td>8000</td>
+    <td><code>python -m uvicorn the_server:app --host 0.0.0.0 --port 8000</code></td>
+  </tr>
+  <tr>
+    <td>scl-core-v2 main API server</td>
+    <td>8003</td>
+    <td><code>run_api_server.cmd</code></td>
+  </tr>
+  <tr>
+    <td>scl-core-v2 tracer server (relay + UI)</td>
+    <td>8004</td>
+    <td><code>run_glass_box_tracer.cmd</code></td>
+  </tr>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">7. Complete Data Flow: One Chat Turn, End to End</h2>
+
+<p>
+  This section traces a single query — "What's the weather in Manila?" — from entry to output,
+  showing exactly what happens in each system at each step.
+</p>
+
+<h3>Step 1 — Client sends the request</h3>
+<p>
+  mirror-app (or law-ph, or any client) sends a POST to chat-wonder-v2-api:
+</p>
+<pre>POST http://&lt;chat-wonder&gt;:8000/chat-stream
+{
+  "user_input": "What's the weather in Manila?",
+  "session_id": "abc12345-..."
+}
+</pre>
+
+<h3>Step 2 — REQUEST broadcast (the_server.py line 903)</h3>
+<pre>
+broadcast_trace(<span class="st">"request"</span>, <span class="st">f"New turn — session {session_id} — input: {user_input[:120]}"</span>, session_id)
+</pre>
+<p>
+  This is the very first line of the <code>/chat</code> and <code>/chat-stream</code> handlers, before
+  any processing. The event is pushed to the trace queue immediately.
+</p>
+
+<h3>Step 3 — Persona detection and RAG</h3>
+<p>
+  <code>process_persona()</code> strips any <code>[legal ai]</code> prefix and selects the appropriate
+  tool set and system prompt. The embeddings store (if populated) is searched for relevant context.
+  <code>_broadcast_retrieval_context()</code> reports what was found.
+</p>
+<p>Source: <span class="lineref">the_server.py lines 647–677</span></p>
+
+<h3>Step 4 — Cognition: first LLM call (line 709)</h3>
+<p>
+  The LLM receives: system prompt + conversation history + RAG context + user question + tool manifest.
+  The model streams its response back as chunks.
+</p>
+<pre>
+broadcast_trace(<span class="st">"cognition"</span>, <span class="st">f"Cycle {_ + 1} — reasoning over {len(messages)} messages"</span>, session_id)
+</pre>
+
+<h3>Step 5 — LLM decides to call get_weather (lines 716–726)</h3>
+<p>
+  The streamed response contains a function_call delta, not text. The loop assembles the function name
+  and arguments across chunks.
+</p>
+<pre>
+<span class="cm"># After stream loop — lines 739–751</span>
+_tool_desc = next(
+    (t[<span class="st">'function'</span>].get(<span class="st">'description'</span>, <span class="st">''</span>) <span class="kw">for</span> t <span class="kw">in</span> available_manifest
+     <span class="kw">if</span> t[<span class="st">'function'</span>][<span class="st">'name'</span>] == function_call[<span class="st">'name'</span>]), <span class="st">''</span>
+)
+broadcast_trace(<span class="st">"cognition"</span>, <span class="st">f"Proposed tool call: `{function_call['name']}`\n"</span>
+    <span class="st">f"Why this tool: \"{_tool_desc[:200]}\"\n"</span>
+    <span class="st">f"Arguments passed: {json.dumps(cur_args)}"</span>, session_id)
+</pre>
+
+<h3>Step 6 — HITL gate (line 754)</h3>
+<pre>
+<span class="kw">if not</span> _context.auto_approval:
+    broadcast_trace(<span class="st">"control"</span>,
+        <span class="st">f"HITL GATE: `{function_call['name']}` requires human approval"</span>, session_id)
+    <span class="kw">return</span> ...   <span class="cm"># pauses and waits for POST /approve-tool</span>
+</pre>
+<p>
+  When auto_approval is True (the normal demo mode), this gate passes immediately and the next
+  broadcast is APPROVED.
+</p>
+
+<h3>Step 7 — ACTION: execute tool (lines 773–790)</h3>
+<pre>
+broadcast_trace(<span class="st">"action"</span>, <span class="st">f"Executing `{function_call['name']}`..."</span>, session_id)
+result = execute_function_call(function_call, session_id=session_id)
+broadcast_trace(<span class="st">"action"</span>,
+    <span class="st">f"Result from `{function_call['name']}` (cycle {_ + 1}):\n{_result_preview[:300]}\n"</span>
+    <span class="st">"→ This result will be stored as a Memory Fact"</span>, session_id)
+</pre>
+
+<h3>Step 8 — MEMORY: fact stored (lines 797–802)</h3>
+<pre>
+broadcast_trace(<span class="st">"memory"</span>,
+    <span class="st">f"Fact stored after cycle {_ + 1}: `{function_call['name']}` result is now confirmed knowledge.\n"</span>
+    <span class="st">f"Value: {_result_preview[:150]}\n"</span>
+    <span class="st">"Effect: The LLM will treat this as ground truth in all subsequent reasoning cycles."</span>,
+    session_id)
+</pre>
+
+<h3>Step 9 — Second LLM call: final answer</h3>
+<p>
+  The LLM now sees the function result injected as a [Memory Fact] system message. It produces a
+  natural-language answer. The loop detects no function_call and breaks. The response is streamed
+  back to mirror-app/law-ph.
+</p>
+
+<h3>What appeared in the Glass-Box Tracer</h3>
+
+<div class="tracer-box">
+  <div class="te request">
+    <span class="b">REQUEST</span><span class="ts">14:32:01</span>
+    New turn — session abc12345 — input: What's the weather in Manila?
+  </div>
+  <div class="te retrieval">
+    <span class="b">RETRIEVAL</span><span class="ts">14:32:01</span>
+    RAG not used — LLM relies on training knowledge and conversation history
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:01</span>
+    Mode: Default | History turns: 0 | LLM given 6 tool(s) to choose from:<br>
+    &nbsp;&nbsp;• get_weather: Returns current weather conditions for a city<br>
+    &nbsp;&nbsp;• search_web: Searches the internet for current information<br>
+    &nbsp;&nbsp;• ... (4 more)
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:01</span>
+    Cycle 1 — reasoning over 2 messages (model: gpt-4o-mini)
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:02</span>
+    Proposed tool call: `get_weather`<br>
+    Why this tool: "Returns current weather conditions for a city including temperature and forecast"<br>
+    Arguments passed: {"city": "Manila"}
+  </div>
+  <div class="te control">
+    <span class="b">CONTROL</span><span class="ts">14:32:02</span>
+    APPROVED: `get_weather` — no prior identical call found
+  </div>
+  <div class="te action">
+    <span class="b">ACTION</span><span class="ts">14:32:02</span>
+    Executing `get_weather`...
+  </div>
+  <div class="te action">
+    <span class="b">ACTION</span><span class="ts">14:32:02</span>
+    Result from `get_weather` (cycle 1):<br>
+    {"temp": 32, "condition": "Sunny", "humidity": 78, "city": "Manila"}<br>
+    → This result will be stored as a Memory Fact and used in the next reasoning cycle.
+  </div>
+  <div class="te memory">
+    <span class="b">MEMORY</span><span class="ts">14:32:02</span>
+    Fact stored after cycle 1: `get_weather` result is now confirmed knowledge.<br>
+    Value: {"temp": 32, "condition": "Sunny"...<br>
+    Effect: The LLM will treat this as ground truth in all subsequent reasoning cycles.
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:03</span>
+    Cycle 2 — reasoning over 4 messages (model: gpt-4o-mini)
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:04</span>
+    LLM produced final text (87 chars): "The current weather in Manila is 32°C and Sunny with 78% humidity."
+  </div>
+</div>
+
+<p>
+  The calling application (mirror-app) received only the final answer text.
+  Everything else shown above was visible only in the Glass-Box Tracer.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>8. The Glass-Box Tracer UI</h2>
+
+<p>
+  The tracer UI is a single HTML file served at <code>http://127.0.0.1:8004/</code> by
+  scl-core-v2's tracer server. It connects to <code>/trace-stream</code> via the browser's native
+  <code>EventSource</code> API and renders each incoming event as a color-coded entry.
+</p>
+
+<p>Source: <span class="lineref">run_glass_box_tracer.html</span></p>
+
+<h3>Key UI features</h3>
+<ul>
+  <li>
+    <strong>Connection status dot</strong> — Green when connected, red when disconnected with
+    auto-reconnect. The status line reads "Connected — watching chat-wonder-v2-api R-CCAM events…"
+  </li>
+  <li>
+    <strong>Color-coded stage badges</strong> — Each R-CCAM stage has a unique color
+    (REQUEST=purple, RETRIEVAL=green, COGNITION=blue, CONTROL=gold, ACTION=orange, MEMORY=light purple)
+  </li>
+  <li>
+    <strong>Session filter</strong> — All sessions that have produced events are added to a dropdown.
+    Select any session to filter the trace to only that session's events.
+  </li>
+  <li>
+    <strong>Clear button</strong> — Wipes all entries and resets the session dropdown.
+  </li>
+  <li>
+    <strong>Auto-scroll</strong> — New events scroll into view automatically.
+  </li>
+  <li>
+    <strong>Ping suppression</strong> — Keep-alive <code>{"type":"ping"}</code> events are silently
+    discarded and never shown in the UI.
+  </li>
+</ul>
+
+<h3>How the browser connects</h3>
+<pre>
+<span class="cm">// run_glass_box_tracer.html — JavaScript</span>
+<span class="kw">const</span> API_HOST = <span class="st">"http://127.0.0.1:8004"</span>;   <span class="cm">// scl-core-v2 tracer server</span>
+
+<span class="kw">function</span> <span class="fn">connect</span>() {
+    es = <span class="kw">new</span> EventSource(`${API_HOST}/trace-stream`);
+    es.onopen  = () =&gt; { dot.className = <span class="st">'dot connected'</span>; ... };
+    es.onmessage = (event) =&gt; {
+        <span class="kw">let</span> payload = JSON.parse(event.data);
+        <span class="kw">if</span> (payload.type === <span class="st">'ping'</span> || payload.type === <span class="st">'connected'</span>) <span class="kw">return</span>;
+        trackSession(payload.session_id);
+        appendEntry(payload);
+    };
+    es.onerror = () =&gt; { es.close(); setTimeout(connect, 3000); };
+}
+</pre>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">9. Option 2 — Chain-of-Thought Reasoning (Pending Implementation)</h2>
+
+<div class="callout pend">
+  <strong>Status: Designed, not yet implemented</strong>
+  The code changes described in this section have been planned and reviewed but not yet written.
+  They will be implemented before the VivaTech 2026 demo.
+</div>
+
+<h3>The gap in the current system</h3>
+
+<p>
+  The current tracer shows <em>what</em> tool the LLM called and <em>what arguments</em> it
+  constructed. What it does not yet show is <em>why</em> — the LLM's own stated reasoning for
+  choosing that tool over the alternatives.
+</p>
+
+<p>
+  The COGNITION event currently reads:
+</p>
+<pre>
+Proposed tool call: `get_weather`
+Why this tool: "Returns current weather conditions for a city"   ← tool description, not LLM's reasoning
+Arguments passed: {"city": "Manila"}
+</pre>
+
+<p>
+  The "Why this tool" line is taken from the tool's description string, not from the LLM's decision
+  process. We want the LLM to explain its own choice.
+</p>
+
+<h3>Two approaches considered</h3>
+
+<table>
+  <tr>
+    <th></th>
+    <th>Option 1 — Background reconstruction</th>
+    <th>Option 2 — Chain-of-thought (chosen)</th>
+  </tr>
+  <tr>
+    <td><strong>How</strong></td>
+    <td>After the tool call, launch a separate LLM call: "The AI chose get_weather. Explain why."</td>
+    <td>Instruct the LLM to write one REASON line before its tool call, in the same inference pass</td>
+  </tr>
+  <tr>
+    <td><strong>Authenticity</strong></td>
+    <td>Fabricated — a plausible explanation invented after the decision</td>
+    <td>Genuine — the LLM's actual reasoning at the moment of the decision</td>
+  </tr>
+  <tr>
+    <td><strong>XAI compliance</strong></td>
+    <td>Fails — a post-hoc explanation can be challenged as fabricated under regulation</td>
+    <td>Compliant — the REASON line is produced before the tool call in the same inference</td>
+  </tr>
+  <tr>
+    <td><strong>Latency</strong></td>
+    <td>Adds a full second LLM call per tool call</td>
+    <td>Adds ~20 tokens to the first response; no extra API calls</td>
+  </tr>
+  <tr>
+    <td><strong>Cost</strong></td>
+    <td>Doubles LLM API cost for every tool call</td>
+    <td>Negligible — ~20 extra input tokens per tool call</td>
+  </tr>
+</table>
+
+<h3>How Option 2 is implemented</h3>
+
+<p><strong>Step 1</strong> — Add XAI instruction to the system prompt</p>
+<p>Location: <span class="lineref">the_server.py line ~467 in prepare_chat_messages()</span></p>
+
+<pre>
+<span class="cm"># Append after the existing system_content block is assembled</span>
+system_content += (
+    <span class="st">"\n\n[XAI Transparency Requirement]\n"</span>
+    <span class="st">"When you decide to call a tool, write exactly one line BEFORE the tool call:\n"</span>
+    <span class="st">"REASON: &lt;one sentence — why this tool, referencing the user's specific request&gt;\n"</span>
+    <span class="st">"Only write a REASON line when calling a tool. Never write it in a text-only response.\n"</span>
+    <span class="st">"The REASON line is for system logging only — do not reference it in your answer.\n"</span>
+)
+</pre>
+
+<p>
+  The LLM now produces something like:
+</p>
+<pre>
+REASON: The user asked about current weather in Manila so I need live temperature data.
+[function_call: get_weather({"city": "Manila"})]
+</pre>
+
+<p><strong>Step 2</strong> — Extract REASON in <code>run_function_chain</code> (non-streaming)</p>
+<p>Location: <span class="lineref">the_server.py lines ~546–558 after the stream loop</span></p>
+
+<pre>
+<span class="cm"># After the stream loop, before the "if not function_call['name']" check</span>
+_xai_reason = <span class="kw">None</span>
+<span class="kw">if</span> last_response:
+    _clean_lines = []
+    <span class="kw">for</span> _ln <span class="kw">in</span> last_response.split(<span class="st">"\n"</span>):
+        <span class="kw">if</span> _ln.strip().startswith(<span class="st">"REASON:"</span>) <span class="kw">and</span> _xai_reason <span class="kw">is None</span>:
+            _xai_reason = _ln.strip()[7:].strip()
+        <span class="kw">else</span>:
+            _clean_lines.append(_ln)
+    last_response = <span class="st">"\n"</span>.join(_clean_lines).strip()
+
+<span class="kw">if</span> _xai_reason <span class="kw">and</span> function_call[<span class="st">"name"</span>]:
+    broadcast_trace(<span class="st">"cognition"</span>, <span class="st">f"Reasoning: {_xai_reason}"</span>, session_id)
+</pre>
+
+<p><strong>Step 3</strong> — Buffer first line in <code>streaming_run_function_chain</code></p>
+<p>
+  The streaming version yields text immediately as chunks arrive. We cannot wait until the stream is
+  complete before checking for a REASON line. Instead, we buffer incoming content until we have one
+  complete line, then decide: if it starts with <code>REASON:</code>, extract it silently; otherwise,
+  yield it to the client.
+</p>
+<p>Location: <span class="lineref">the_server.py lines ~723–726 (current yield part block)</span></p>
+
+<pre>
+<span class="cm"># Initialise per-cycle state before the stream loop</span>
+_xai_buffer = <span class="st">""</span>
+_xai_first_line_done = <span class="kw">False</span>
+_xai_reason = <span class="kw">None</span>
+
+<span class="cm"># Inside the stream loop — replace "yield part" with:</span>
+<span class="kw">elif</span> hasattr(delta, <span class="st">"content"</span>) <span class="kw">and</span> delta.content:
+    part = delta.content.replace(<span class="st">"~"</span>, <span class="st">"-"</span>)
+    <span class="kw">if not</span> _xai_first_line_done:
+        _xai_buffer += part
+        <span class="kw">if</span> <span class="st">"\n"</span> <span class="kw">in</span> _xai_buffer:
+            _xai_first_line_done = <span class="kw">True</span>
+            newline_pos = _xai_buffer.index(<span class="st">"\n"</span>)
+            first_line = _xai_buffer[:newline_pos]
+            remainder = _xai_buffer[newline_pos + 1:]
+            <span class="kw">if</span> first_line.strip().startswith(<span class="st">"REASON:"</span>):
+                _xai_reason = first_line.strip()[7:].strip()
+                <span class="cm"># Discard first_line — do NOT yield it to the client</span>
+            <span class="kw">else</span>:
+                last_response += first_line + <span class="st">"\n"</span>
+                <span class="kw">yield</span> first_line + <span class="st">"\n"</span>
+            <span class="kw">if</span> remainder:
+                last_response += remainder
+                <span class="kw">yield</span> remainder
+            _xai_buffer = <span class="st">""</span>
+    <span class="kw">else</span>:
+        last_response += part
+        <span class="kw">yield</span> part
+</pre>
+
+<h3>What the tracer will show after Option 2 is implemented</h3>
+<p>The COGNITION sequence for the Manila weather query will become:</p>
+
+<div class="tracer-box">
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:01</span>
+    Cycle 1 — reasoning over 2 messages (model: gpt-4o-mini)
+  </div>
+  <div class="te cognition" style="border-left-color: #58a6ff; background: #0d1b35;">
+    <span class="b" style="background:#0d1b35;color:#58a6ff;">COGNITION</span><span class="ts">14:32:02</span>
+    <strong>Reasoning: The user asked about current weather in Manila so I need live temperature data from a real-time weather source.</strong><br>
+    <em>(← This is the LLM's own words, written before calling the tool — authentic XAI evidence)</em>
+  </div>
+  <div class="te cognition">
+    <span class="b">COGNITION</span><span class="ts">14:32:02</span>
+    Proposed tool call: `get_weather`<br>
+    Why this tool: "Returns current weather conditions for a city..."<br>
+    Arguments passed: {"city": "Manila"}
+  </div>
+</div>
+
+<div class="callout done">
+  <strong>XAI compliance met</strong>
+  The "Reasoning:" line appears BEFORE "Proposed tool call" because the LLM wrote it before making
+  the call — in the same inference pass. This is the chronological truth. The tool description line
+  is supplemental context from our metadata; the Reasoning line is the authentic explanation.
+</div>
+
+<h3>What the client (mirror-app / law-ph) sees</h3>
+<p>
+  Nothing changes from the client's perspective. The REASON line is stripped before it reaches
+  the response stream. The calling application receives exactly the same final answer it always did.
+</p>
+
+<h3>Future: end-user XAI visibility</h3>
+<p>
+  A single config flag (<code>_context.xai_reason_visible</code>, defaulting to <code>False</code>)
+  controls whether the REASON line is stripped or passed through to the client. When set to
+  <code>True</code>, end users of law-ph or mirror-app would see the AI's reasoning inline.
+  This is ready to be enabled — it is one line change, not a refactor.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>10. Port Map and How to Run Everything</h2>
+
+<h3>Starting the stack (development)</h3>
+
+<p>Three processes must be running simultaneously. Start them in three separate terminals:</p>
+
+<table>
+  <tr><th>Terminal</th><th>Directory</th><th>Command</th><th>Purpose</th></tr>
+  <tr>
+    <td>1</td>
+    <td><code>chat-wonder-v2-api/</code></td>
+    <td><code>python -m uvicorn the_server:app --host 0.0.0.0 --port 8000</code></td>
+    <td>Main AI server — handles /chat, /chat-stream, /trace-stream</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><code>scl-core-v2/</code></td>
+    <td><code>run_glass_box_tracer.cmd</code></td>
+    <td>Tracer relay server + Glass-Box UI at port 8004</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>(optional) <code>scl-core-v2/</code></td>
+    <td><code>run_api_server.cmd</code></td>
+    <td>SCL main API server at port 8003 (not required for tracer only)</td>
+  </tr>
+</table>
+
+<h3>Verifying the setup</h3>
+<ol>
+  <li>Open <code>http://127.0.0.1:8004/</code> in a browser — the dot should go green within 1 second</li>
+  <li>Open <code>http://127.0.0.1:8000/docs</code> — Swagger UI for chat-wonder-v2-api</li>
+  <li>Use Swagger to call <code>POST /session-id</code>, then <code>POST /chat-stream</code> with a tool-triggering query</li>
+  <li>Observe events appearing in the tracer UI in real time</li>
+</ol>
+
+<h3>run_glass_box_tracer.cmd</h3>
+<p>Source: <span class="lineref">scl-core-v2/run_glass_box_tracer.cmd</span></p>
+<pre>
+@echo off
+python -m uvicorn scl_tracer_server:app --host 0.0.0.0 --port 8004 --timeout-keep-alive 3600
+</pre>
+<p>
+  The <code>--timeout-keep-alive 3600</code> flag prevents uvicorn from closing the connection to
+  chat-wonder-v2-api after the default 5-second keep-alive timeout. Without it, the relay would
+  drop and reconnect every 5 seconds.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>11. What Is Complete, What Is Pending</h2>
+
+<table>
+  <tr><th>Component</th><th>Status</th><th>Notes</th></tr>
+  <tr>
+    <td>broadcast_trace() in chat-wonder-v2-api</td>
+    <td style="color:#22c55e; font-weight:700;">Complete</td>
+    <td>All R-CCAM stages instrumented. Thread-safe. Zero overhead on main path.</td>
+  </tr>
+  <tr>
+    <td>/trace-stream endpoint in chat-wonder-v2-api</td>
+    <td style="color:#22c55e; font-weight:700;">Complete</td>
+    <td>SSE with keep-alive ping, CORS header, queue cleanup on disconnect.</td>
+  </tr>
+  <tr>
+    <td>scl-core-v2 tracer server (relay + UI server)</td>
+    <td style="color:#22c55e; font-weight:700;">Complete</td>
+    <td>Background relay task, auto-reconnect, serves HTML at GET /</td>
+  </tr>
+  <tr>
+    <td>Glass-Box Tracer browser UI</td>
+    <td style="color:#22c55e; font-weight:700;">Complete</td>
+    <td>Session filter, color badges, auto-scroll, ping suppression, reconnect</td>
+  </tr>
+  <tr>
+    <td>Browser security fix (null origin block)</td>
+    <td style="color:#22c55e; font-weight:700;">Complete</td>
+    <td>Solved by serving HTML via HTTP (same origin as SSE stream)</td>
+  </tr>
+  <tr>
+    <td>Option 2 — Chain-of-Thought REASON extraction</td>
+    <td style="color:#d29922; font-weight:700;">Pending</td>
+    <td>Design complete. System prompt change + REASON extraction in both function chain variants</td>
+  </tr>
+  <tr>
+    <td>Legal persona XAI (law-ph path)</td>
+    <td style="color:#d29922; font-weight:700;">Deferred</td>
+    <td>Separate plan. Legal path bypasses tool loop so REASON mechanism doesn't apply</td>
+  </tr>
+  <tr>
+    <td>Audit trail / database persistence</td>
+    <td style="color:#d29922; font-weight:700;">Post-demo</td>
+    <td>SSE-only is correct for VivaTech live demo. Persistence added if regulatory compliance hardens</td>
+  </tr>
+  <tr>
+    <td>Same architecture for chat-wonder-api v1 + scl-core</td>
+    <td style="color:#d29922; font-weight:700;">Not started</td>
+    <td>Separate task, separate plan</td>
+  </tr>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>12. Appendix — Code Reference Index</h2>
+
+<table>
+  <tr><th>Symbol / Concept</th><th>File</th><th>Lines</th><th>Description</th></tr>
+  <tr>
+    <td><code>broadcast_trace()</code></td>
+    <td>the_server.py</td>
+    <td>142–166</td>
+    <td>Push an R-CCAM event to all SSE subscribers. Thread-safe via call_soon_threadsafe.</td>
+  </tr>
+  <tr>
+    <td><code>_trace_queues</code></td>
+    <td>the_server.py</td>
+    <td>140</td>
+    <td>Set of asyncio.Queue objects, one per active SSE subscriber (normally just scl-core-v2)</td>
+  </tr>
+  <tr>
+    <td><code>GET /trace-stream</code></td>
+    <td>the_server.py</td>
+    <td>168–187</td>
+    <td>SSE endpoint inside chat-wonder. Only scl-core-v2 subscribes to this.</td>
+  </tr>
+  <tr>
+    <td><code>ApiContext</code></td>
+    <td>the_server.py</td>
+    <td>52–62</td>
+    <td>Global singleton holding model config, sessions, tool manifest, embeddings store</td>
+  </tr>
+  <tr>
+    <td><code>ChatState</code></td>
+    <td>the_server.py</td>
+    <td>94–110</td>
+    <td>Per-session state: conversation history, HITL pending call, last_used timestamp</td>
+  </tr>
+  <tr>
+    <td><code>prepare_chat_messages()</code></td>
+    <td>the_server.py</td>
+    <td>431–477</td>
+    <td>Builds LLM message list (system + user). XAI REASON instruction will be added here.</td>
+  </tr>
+  <tr>
+    <td><code>run_function_chain()</code></td>
+    <td>the_server.py</td>
+    <td>519–645</td>
+    <td>Non-streaming R-CCAM tool loop. Collects full response, then extracts REASON post-loop.</td>
+  </tr>
+  <tr>
+    <td><code>streaming_run_function_chain()</code></td>
+    <td>the_server.py</td>
+    <td>688–807</td>
+    <td>Streaming R-CCAM tool loop generator. Buffers first line to intercept REASON before yielding.</td>
+  </tr>
+  <tr>
+    <td><code>_broadcast_retrieval_context()</code></td>
+    <td>the_server.py</td>
+    <td>647–677</td>
+    <td>Emits RETRIEVAL + initial COGNITION events (RAG sources and tool list) before first LLM call</td>
+  </tr>
+  <tr>
+    <td><code>_relay_from_chat_wonder()</code></td>
+    <td>scl_tracer_server.py</td>
+    <td>24–41</td>
+    <td>Background task in scl-core-v2. Subscribes to chat-wonder's SSE, fans out to browser queues.</td>
+  </tr>
+  <tr>
+    <td><code>GET /</code> (HTML server)</td>
+    <td>scl_tracer_server.py</td>
+    <td>78–82</td>
+    <td>Serves run_glass_box_tracer.html so browsers have an HTTP origin for CORS-safe SSE</td>
+  </tr>
+  <tr>
+    <td><code>connect()</code></td>
+    <td>run_glass_box_tracer.html</td>
+    <td>108–130</td>
+    <td>Browser JS: EventSource connection to scl-core-v2 SSE with auto-reconnect</td>
+  </tr>
+  <tr>
+    <td><code>appendEntry()</code></td>
+    <td>run_glass_box_tracer.html</td>
+    <td>159–186</td>
+    <td>Renders an R-CCAM event entry with badge, session ID, timestamp, and body text</td>
+  </tr>
+  <tr>
+    <td>HITL gate</td>
+    <td>the_server.py</td>
+    <td>582–586 (non-stream), 754–758 (stream)</td>
+    <td>Pauses loop when <code>auto_approval=False</code>, waits for POST /approve-tool</td>
+  </tr>
+  <tr>
+    <td>Legal persona routing</td>
+    <td>the_server.py</td>
+    <td>924–948 (/chat), ~similar in /chat-stream</td>
+    <td>Detects [legal ai] prefix, routes to pgvector RAG pipeline, bypasses tool loop</td>
+  </tr>
+</table>
+
+<hr>
+<p style="font-size: 11px; color: #8b949e; text-align: center;">
+  chat-wonder-v2-api + SCL Glass-Box Tracer — Internal Technical Documentation — FORHU — May 2026
+</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SCL Glass-Box Tracer v2</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; padding: 20px; background: #0d1117; color: #cdd9e5; margin: 0; }
+
+        .header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+        h2 { margin: 0; font-size: 17px; color: #e6edf3; }
+        .subtitle { font-size: 12px; color: #484f58; margin-bottom: 16px; }
+
+        .status-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: #484f58; flex-shrink: 0; }
+        .dot.connected { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .dot.error { background: #e05252; }
+        .status-text { font-size: 12px; color: #8b949e; }
+
+        .toolbar { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+        .btn { padding: 4px 12px; cursor: pointer; border: 1px solid #30363d; border-radius: 5px;
+               background: #161b22; color: #8b949e; font-size: 12px; }
+        .btn:hover { border-color: #8b949e; color: #cdd9e5; }
+
+        .filter-wrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8b949e; }
+        #session-filter { background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+                          color: #cdd9e5; padding: 3px 8px; font-size: 12px; min-width: 180px; }
+
+        .legend { display: flex; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+        .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #8b949e; }
+        .leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        #trace { background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+                 padding: 16px; min-height: 480px; overflow-y: auto;
+                 max-height: calc(100vh - 200px); }
+        .empty-msg { color: #484f58; font-size: 13px; font-family: monospace; }
+
+        .entry { margin-bottom: 12px; border-left: 3px solid #30363d; padding: 6px 0 6px 12px; }
+        .entry.request   { border-left-color: #9e7dff; }
+        .entry.retrieval { border-left-color: #39d353; }
+        .entry.cognition { border-left-color: #388bfd; }
+        .entry.control   { border-left-color: #d29922; }
+        .entry.action    { border-left-color: #f0883e; }
+        .entry.memory    { border-left-color: #bc8cff; }
+        .entry.tool      { border-left-color: #f0883e; }
+        .entry.result    { border-left-color: #3fb950; }
+
+        .entry-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+        .badge { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; padding: 2px 6px; border-radius: 3px; }
+        .badge.request   { background: #1e1040; color: #9e7dff; }
+        .badge.retrieval { background: #0d2210; color: #39d353; }
+        .badge.cognition { background: #0d1b2e; color: #388bfd; }
+        .badge.control   { background: #2b2000; color: #d29922; }
+        .badge.action    { background: #3d1f00; color: #f0883e; }
+        .badge.memory    { background: #1f0e40; color: #bc8cff; }
+        .badge.tool      { background: #3d1f00; color: #f0883e; }
+        .badge.result    { background: #0d2818; color: #3fb950; }
+
+        .sid  { font-size: 10px; color: #484f58; font-family: monospace;
+                background: #1c2129; padding: 1px 5px; border-radius: 3px; }
+        .ts   { font-size: 11px; color: #484f58; font-family: monospace; }
+        .body { font-family: monospace; font-size: 12px; color: #cdd9e5;
+                word-break: break-word; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>SCL Glass-Box Tracer v2</h2>
+</div>
+<div class="subtitle">Passive observer — trigger requests via Swagger or any client. R-CCAM loop events appear here in real-time. Includes HITL gate visibility.</div>
+
+<div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span class="status-text" id="status-text">Connecting…</span>
+    <div class="toolbar">
+        <div class="filter-wrap">
+            <label for="session-filter">Session:</label>
+            <select id="session-filter"><option value="">All sessions</option></select>
+        </div>
+        <button class="btn" onclick="clearTrace()">Clear</button>
+    </div>
+</div>
+
+<div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#9e7dff"></div> Request</div>
+    <div class="leg"><div class="leg-dot" style="background:#39d353"></div> Retrieval</div>
+    <div class="leg"><div class="leg-dot" style="background:#388bfd"></div> Cognition</div>
+    <div class="leg"><div class="leg-dot" style="background:#d29922"></div> Control</div>
+    <div class="leg"><div class="leg-dot" style="background:#f0883e"></div> Action</div>
+    <div class="leg"><div class="leg-dot" style="background:#bc8cff"></div> Memory</div>
+</div>
+
+<div id="trace">
+    <div class="empty-msg" id="empty-msg">Waiting for function calls…</div>
+</div>
+
+<script>
+    const traceDiv   = document.getElementById('trace');
+    const dot        = document.getElementById('dot');
+    const statusText = document.getElementById('status-text');
+    const filterSel  = document.getElementById('session-filter');
+
+    const API_HOST = "http://127.0.0.1:8004";   // scl-core-v2 tracer server
+    const seenSessions = new Set();
+    let es;
+
+    function connect() {
+        es = new EventSource(`${API_HOST}/trace-stream`);
+
+        es.onopen = () => {
+            dot.className = 'dot connected';
+            statusText.textContent = 'Connected — watching chat-wonder-v2-api R-CCAM events…';
+        };
+
+        es.onmessage = (event) => {
+            let payload;
+            try { payload = JSON.parse(event.data); } catch { return; }
+            if (payload.type === 'ping' || payload.type === 'connected') return;
+            trackSession(payload.session_id);
+            appendEntry(payload);
+        };
+
+        es.onerror = () => {
+            dot.className = 'dot error';
+            statusText.textContent = 'Connection lost — retrying…';
+            es.close();
+            setTimeout(connect, 3000);
+        };
+    }
+
+    function trackSession(sid) {
+        if (!sid || seenSessions.has(sid)) return;
+        seenSessions.add(sid);
+        const opt = document.createElement('option');
+        opt.value = sid;
+        opt.textContent = sid.slice(0, 8) + '…';
+        filterSel.appendChild(opt);
+    }
+
+    filterSel.addEventListener('change', () => {
+        const selected = filterSel.value;
+        document.querySelectorAll('.entry[data-sid]').forEach(el => {
+            el.style.display = (!selected || el.dataset.sid === selected) ? '' : 'none';
+        });
+    });
+
+    const STAGE_LABEL = {
+        request:   '⬤ REQUEST',
+        retrieval: '◎ RETRIEVAL',
+        cognition: '◈ COGNITION',
+        control:   '▣ CONTROL',
+        action:    '▶ ACTION',
+        memory:    '◉ MEMORY',
+        tool:      '▶ CALL',
+        result:    '◀ RESULT',
+    };
+
+    function appendEntry(payload) {
+        const emptyMsg = document.getElementById('empty-msg');
+        if (emptyMsg) emptyMsg.remove();
+
+        const ts    = new Date(payload.ts * 1000).toLocaleTimeString([], { hour12: false });
+        const type  = payload.type || 'cognition';
+        const label = STAGE_LABEL[type] || type.toUpperCase();
+        const sid   = payload.session_id || '';
+        const short = sid ? sid.slice(0, 8) + '…' : '—';
+
+        const el = document.createElement('div');
+        el.className = `entry ${type}`;
+        el.dataset.sid = sid;
+
+        const activeFilter = filterSel.value;
+        if (activeFilter && sid !== activeFilter) el.style.display = 'none';
+
+        el.innerHTML =
+            `<div class="entry-header">` +
+            `<span class="badge ${type}">${escapeHtml(label)}</span>` +
+            `<span class="sid" title="${escapeHtml(sid)}">${escapeHtml(short)}</span>` +
+            `<span class="ts">${ts}</span>` +
+            `</div>` +
+            `<div class="body">${escapeHtml(payload.text || '')}</div>`;
+
+        traceDiv.appendChild(el);
+        traceDiv.scrollTop = traceDiv.scrollHeight;
+    }
+
+    function clearTrace() {
+        traceDiv.innerHTML = '<div class="empty-msg" id="empty-msg">Waiting for function calls…</div>';
+        seenSessions.clear();
+        while (filterSel.options.length > 1) filterSel.remove(1);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    connect();
+</script>
+</body>
+</html>
