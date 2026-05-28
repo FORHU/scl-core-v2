@@ -83,7 +83,7 @@ jobs:
                       docker run -d \
                         --name scl-core-v2 \
                         --restart unless-stopped \
-                        -p 8004:8004 \
+                        --network host \
                         ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:latest
 
                       # ── Cleanup old images ────────────────────────────────────────
