@@ -42,15 +42,6 @@ jobs:
                   docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
                   docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-            - name: Copy nginx config to EC2
-              uses: appleboy/scp-action@v0.1.7
-              with:
-                  host: ${{ vars.EC2_HOST }}
-                  username: ${{ vars.EC2_USER }}
-                  key: ${{ secrets.EC2_SSH_KEY }}
-                  source: "nginx/scl-dev.conf"
-                  target: "/tmp/"
-
             - name: Deploy on EC2
               uses: appleboy/ssh-action@v1.0.3
               with:
@@ -97,27 +88,3 @@ jobs:
 
                       # ── Cleanup old images ────────────────────────────────────────
                       docker image prune -f
-
-                      # ── Bootstrap: nginx ──────────────────────────────────────────
-                      if ! command -v nginx &> /dev/null; then
-                        sudo dnf install -y nginx
-                        sudo systemctl enable nginx
-                      fi
-
-                      # ── Bootstrap: certbot ────────────────────────────────────────
-                      if ! command -v certbot &> /dev/null; then
-                        sudo dnf install -y certbot
-                      fi
-
-                      # ── Obtain cert (first deploy only — brief nginx stop) ─────────
-                      if [ ! -f /etc/letsencrypt/live/scl-dev.forhu.ai/fullchain.pem ]; then
-                        sudo systemctl stop nginx || true
-                        sudo certbot certonly --standalone \
-                          -d scl-dev.forhu.ai -d www.scl-dev.forhu.ai \
-                          --non-interactive --agree-tos \
-                          -m bulan.guieb@gmail.com
-                      fi
-
-                      # ── Install nginx config and reload ───────────────────────────
-                      sudo mv /tmp/nginx/scl-dev.conf /etc/nginx/conf.d/scl-dev.conf
-                      sudo nginx -t && sudo systemctl restart nginx
