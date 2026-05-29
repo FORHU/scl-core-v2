@@ -104,6 +104,24 @@ jobs:
                         sudo systemctl enable nginx
                       fi
 
+                      # ── Bootstrap: certbot ────────────────────────────────────────
+                      if ! command -v certbot &> /dev/null; then
+                        sudo dnf install -y certbot
+                      fi
+
+                      # ── Obtain cert (first deploy only — brief nginx stop) ─────────
+                      if [ ! -f /etc/letsencrypt/live/scl-dev.forhu.ai/fullchain.pem ]; then
+                        sudo systemctl stop nginx || true
+                        sudo certbot certonly --standalone \
+                          -d scl-dev.forhu.ai -d www.scl-dev.forhu.ai \
+                          --non-interactive --agree-tos \
+                          -m bulan.guieb@gmail.com
+                      fi
+
+                      # ── Enable auto-renewal via cron (idempotent) ─────────────────
+                      (sudo crontab -l 2>/dev/null | grep -q certbot) || \
+                        { sudo crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'"; } | sudo crontab -
+
                       # ── Install nginx config and reload ───────────────────────────
                       sudo mv /tmp/nginx/scl-dev.conf /etc/nginx/conf.d/scl-dev.conf
                       sudo nginx -t && sudo systemctl restart nginx
