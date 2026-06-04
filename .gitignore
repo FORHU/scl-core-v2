@@ -1,4 +1,8 @@
+.env
 /.agents
+/.claude
+/__pycache__
+/__pycache__
+/.claude
 skills-lock.json
-CONTEXT.md
 CONTEXT.md

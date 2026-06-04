@@ -5,6 +5,14 @@
     <title>SCL Glass-Box Tracer v2</title>
     <style>
         * { box-sizing: border-box; }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .turn-group { animation: fadeSlideIn 0.2s ease-out; }
+        .entry      { animation: fadeSlideIn 0.15s ease-out; }
+
         body { font-family: sans-serif; padding: 20px; background: #0d1117; color: #cdd9e5; margin: 0; }
 
         .header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
@@ -45,13 +53,41 @@
                  max-height: calc(100vh - 240px); }
         .empty-msg { color: #484f58; font-size: 13px; font-family: monospace; }
 
+        /* Turn group card */
+        .turn-group { margin-bottom: 18px; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; }
+        .turn-header {
+            display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+            background: #1a1f2e; padding: 10px 14px; cursor: pointer;
+            border-left: 3px solid #9e7dff; user-select: none;
+        }
+        .turn-header:hover { background: #1f2640; }
+        .turn-toggle { font-size: 10px; color: #484f58; flex-shrink: 0; transition: transform 0.15s; }
+        .turn-group.collapsed .turn-toggle { transform: rotate(-90deg); }
+        .turn-q { font-size: 13px; color: #e6edf3; flex: 1; white-space: pre-wrap; word-break: break-word; }
+        .turn-meta { font-size: 11px; color: #484f58; font-family: monospace; flex-shrink: 0; }
+        .turn-body { padding: 12px 14px 6px; background: #161b22; }
+        .turn-group.collapsed .turn-body { display: none; }
+
         .entry { margin-bottom: 14px; border-left: 3px solid #30363d; padding: 8px 0 8px 14px; }
-        .entry.request   { border-left-color: #9e7dff; }
         .entry.retrieval { border-left-color: #39d353; }
         .entry.cognition { border-left-color: #388bfd; }
         .entry.control   { border-left-color: #d29922; }
         .entry.action    { border-left-color: #f0883e; }
         .entry.memory    { border-left-color: #bc8cff; }
+
+        /* REASON entries — AI's genuine chain-of-thought */
+        .entry.reason { background: #111827; border-left-color: #60a5fa; }
+        .entry.reason .summary-body {
+            font-style: italic; color: #93c5fd;
+            border-left: 2px solid #388bfd; padding-left: 10px; margin-left: 2px;
+        }
+
+        /* Confidence footer — end-of-turn grounding summary */
+        .entry.confidence { background: #0a1a0a; border-left-color: #3fb950; margin-top: 8px; }
+        .entry.confidence .summary-body { color: #7ee787; font-size: 12px; }
+
+        /* Timing badge */
+        .turn-elapsed { font-size: 10px; color: #30363d; font-family: monospace; margin-left: auto; flex-shrink: 0; }
 
         .entry-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
         .badge { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; padding: 2px 6px;
@@ -64,9 +100,6 @@
         .badge.memory    { background: #1f0e40; color: #bc8cff; }
 
         .plain-label { font-size: 11px; color: #8b949e; font-style: italic; }
-
-        .sid  { font-size: 10px; color: #484f58; font-family: monospace;
-                background: #1c2129; padding: 1px 5px; border-radius: 3px; }
         .ts   { font-size: 11px; color: #484f58; font-family: monospace; }
 
         /* Human-readable summary — primary display */
@@ -146,6 +179,8 @@
     const API_HOST = window.location.origin;
     const seenSessions = new Set();
     let es;
+    let currentTurnEl = null;
+    let turnStartTs   = null;
 
     const TYPE_LABELS = {
         request:   'User asked a question',
@@ -213,7 +248,6 @@
         const text = payload.text || '';
         if (!text.startsWith('Mode:')) return;
 
-        // Parse: "Mode: Legal AI | History turns: 2 | LLM was given 2 tool(s):\n  • search_legal: ...\n  • ..."
         const modeMatch = text.match(/Mode:\s*([^|]+)/);
         const persona = modeMatch ? modeMatch[1].trim() : '—';
 
@@ -229,41 +263,61 @@
 
     filterSel.addEventListener('change', () => {
         const selected = filterSel.value;
-        document.querySelectorAll('.entry[data-sid]').forEach(el => {
+        document.querySelectorAll('.turn-group[data-sid]').forEach(el => {
             el.style.display = (!selected || el.dataset.sid === selected) ? '' : 'none';
         });
     });
 
-    function appendEntry(payload) {
-        const emptyMsg = document.getElementById('empty-msg');
-        if (emptyMsg) emptyMsg.remove();
+    function buildTurnGroup(payload) {
+        const group = document.createElement('div');
+        group.className = 'turn-group';
+        const sid = payload ? (payload.session_id || '') : '';
+        group.dataset.sid = sid;
 
-        const ts      = new Date(payload.ts * 1000).toLocaleTimeString([], { hour12: false });
-        const type    = payload.type || 'cognition';
-        const label   = STAGE_LABEL[type] || type.toUpperCase();
-        const plLabel = TYPE_LABELS[type] || '';
-        const tooltip = TYPE_TOOLTIPS[type] || '';
-        const sid     = payload.session_id || '';
-        const short   = sid ? sid.slice(0, 8) + '…' : '—';
+        const activeFilter = filterSel.value;
+        if (activeFilter && sid !== activeFilter) group.style.display = 'none';
 
-        // Display summary if available, otherwise fall back to raw text
+        const ts    = payload ? new Date(payload.ts * 1000).toLocaleTimeString([], { hour12: false }) : '—';
+        const short = sid ? sid.slice(0, 8) + '…' : '—';
+        const q     = payload ? (payload.summary || payload.text || '') : '(pre-session events)';
+
+        group.innerHTML =
+            `<div class="turn-header" onclick="toggleTurn(this)">` +
+            `<span class="turn-toggle">▼</span>` +
+            `<span class="turn-q">${escapeHtml(q)}</span>` +
+            `<span class="turn-meta">${escapeHtml(short)} · ${ts}</span>` +
+            `</div>` +
+            `<div class="turn-body"></div>`;
+
+        return group;
+    }
+
+    function buildEntry(payload) {
+        const ts           = new Date(payload.ts * 1000).toLocaleTimeString([], { hour12: false });
+        const type         = payload.type || 'cognition';
+        const isReason     = type === 'cognition' && (payload.text || '').startsWith('Reasoning:');
+        const isConfidence = type === 'cognition' && (payload.text || '').startsWith('Turn complete');
+        const label        = STAGE_LABEL[type] || type.toUpperCase();
+        const plLabel      = isReason ? "AI's own reasoning" : (TYPE_LABELS[type] || '');
+        const tooltip      = TYPE_TOOLTIPS[type] || '';
+        const elapsed      = (turnStartTs !== null) ? (payload.ts - turnStartTs) : null;
+
         const displayText = (payload.summary && payload.summary.trim())
             ? payload.summary
             : (payload.text || '');
 
         const el = document.createElement('div');
-        el.className = `entry ${type}`;
-        el.dataset.sid = sid;
-
-        const activeFilter = filterSel.value;
-        if (activeFilter && sid !== activeFilter) el.style.display = 'none';
+        let cls = `entry ${type}`;
+        if (isReason) cls += ' reason';
+        if (isConfidence) cls += ' confidence';
+        el.className = cls;
 
         el.innerHTML =
             `<div class="entry-header">` +
             `<span class="badge ${type}" title="${escapeHtml(tooltip)}">${escapeHtml(label)}</span>` +
             (plLabel ? `<span class="plain-label">• ${escapeHtml(plLabel)}</span>` : '') +
-            `<span class="sid" title="${escapeHtml(sid)}">${escapeHtml(short)}</span>` +
             `<span class="ts">${ts}</span>` +
+            (elapsed !== null ? `<span class="turn-elapsed">+${elapsed.toFixed(1)}s</span>` : '') +
             `</div>` +
             `<div class="summary-body">${escapeHtml(displayText)}</div>` +
             `<details class="tech-detail">` +
@@ -272,12 +326,43 @@
             `<pre class="tech-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>` +
             `</details>`;
 
-        traceDiv.appendChild(el);
+        return el;
+    }
+
+    function appendEntry(payload) {
+        const emptyMsg = document.getElementById('empty-msg');
+        if (emptyMsg) emptyMsg.remove();
+
+        const type = payload.type || 'cognition';
+
+        if (type === 'request') {
+            turnStartTs   = payload.ts;
+            const group   = buildTurnGroup(payload);
+            currentTurnEl = group.querySelector('.turn-body');
+            traceDiv.appendChild(group);
+            traceDiv.scrollTop = traceDiv.scrollHeight;
+            return;
+        }
+
+        if (!currentTurnEl) {
+            turnStartTs   = payload.ts;
+            const group   = buildTurnGroup(null);
+            currentTurnEl = group.querySelector('.turn-body');
+            traceDiv.appendChild(group);
+        }
+
+        currentTurnEl.appendChild(buildEntry(payload));
         traceDiv.scrollTop = traceDiv.scrollHeight;
+    }
+
+    function toggleTurn(headerEl) {
+        headerEl.closest('.turn-group').classList.toggle('collapsed');
     }
 
     function clearTrace() {
         traceDiv.innerHTML = '<div class="empty-msg" id="empty-msg">Waiting for function calls…</div>';
+        currentTurnEl = null;
+        turnStartTs   = null;
         seenSessions.clear();
         while (filterSel.options.length > 1) filterSel.remove(1);
         document.getElementById('ai-status-bar').style.display = 'none';
