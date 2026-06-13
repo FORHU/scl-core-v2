@@ -18,7 +18,7 @@ One LLM inference pass within a Turn. A Turn contains at least one Cycle; it gai
 The first phase. Broadcasts the incoming user message and session ID to the tracer. Always fires.
 
 **Retrieval (phase)**
-RAG lookup against the loaded embeddings (`basic_indexes.pkz`). Reports either the top-N chunks retrieved or "RAG not used" if no match crosses the threshold. Always fires, but may be a no-op.
+RAG lookup against the legal document corpus (PostgreSQL+pgvector via `HybridRetriever`, combining keyword + vector search). Reports either the top-N chunks retrieved or "RAG not used" if no match crosses the threshold. Always fires, but may be a no-op.
 
 **Cognition (phase)**
 LLM prompt construction and inference. Reports: mode (persona), conversation history depth, available tools, and the proposed tool call (if any). Fires at the start of each Cycle.
@@ -40,6 +40,9 @@ A conversation context keyed by UUID, scoped to one user interaction. Holds turn
 
 **Tool**
 A named, callable function exposed to the LLM. Defined in `basic_functions.zip`. The LLM selects a tool during Cognition; Control gates its execution; Action runs it; Memory records the result.
+
+**Persona**
+A named mode activated when the user prefixes their message with a recognized tag. Each persona filters the tool set to a relevant whitelist and loads a custom system prompt. Current personas: `legal` (prefix `[legal ai]`) and `garment` (prefix `[garment]`). The default persona is `auto` — no prefix, uses all general (untagged) tools. Persona-triggered turns always auto-approve tool calls; HITL applies only in `auto` mode.
 
 **Glass-Box Tracer**
 The SCL observability layer. `scl_tracer_server.py` (port 8004) relays SSE events from `chat-wonder-v2-api`'s `/trace-stream` endpoint to browser subscribers, showing each R-CCAM phase as it executes.
