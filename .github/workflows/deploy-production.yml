@@ -1,0 +1,90 @@
+name: Deploy to EC2 (Production)
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            image_tag:
+                description: "Image tag to deploy (defaults to latest commit SHA)"
+                required: false
+                default: ""
+
+env:
+    ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+    ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+    IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        environment: production
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ vars.AWS_REGION }}
+
+            - name: Login to Amazon ECR
+              id: login-ecr
+              uses: aws-actions/amazon-ecr-login@v2
+
+            - name: Build and push Docker image
+              run: |
+                  docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+                  docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+                  docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                  docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+            - name: Deploy on EC2
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ vars.EC2_HOST }}
+                  username: ${{ vars.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_DEFAULT_REGION
+                  script: |
+                      set -e
+
+                      # ── Bootstrap: Docker ─────────────────────────────────────────
+                      if ! command -v docker &> /dev/null; then
+                        sudo dnf install -y docker
+                        sudo systemctl enable --now docker
+                        sudo usermod -aG docker ec2-user
+                        newgrp docker
+                      fi
+
+                      # ── Bootstrap: AWS CLI ────────────────────────────────────────
+                      if ! command -v aws &> /dev/null; then
+                        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+                        unzip -q /tmp/awscliv2.zip -d /tmp
+                        sudo /tmp/aws/install
+                        rm -rf /tmp/awscliv2.zip /tmp/aws
+                      fi
+
+                      # ── Authenticate EC2 to ECR ───────────────────────────────────
+                      aws ecr get-login-password --region ${{ vars.AWS_REGION }} \
+                        | docker login --username AWS --password-stdin ${{ vars.ECR_REGISTRY }}
+
+                      # ── Pull latest image ─────────────────────────────────────────
+                      docker pull ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:latest
+
+                      # ── Stop and remove old container ─────────────────────────────
+                      docker stop scl-core-v2 || true
+                      docker rm   scl-core-v2 || true
+
+                      # ── Start new container ───────────────────────────────────────
+                      docker run -d \
+                        --name scl-core-v2 \
+                        --restart unless-stopped \
+                        --network host \
+                        ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:latest
+
+                      # ── Cleanup old images ────────────────────────────────────────
+                      docker image prune -f
