@@ -1,0 +1,157 @@
+name: Deploy to EC2 (UK)
+
+# FORHU/scl-core-v2 → the chat-wonder UK host (eu-west-2).
+#
+# Same build as deploy-production.yml. Three differences:
+#   * OIDC instead of AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY — no long-lived
+#     keys in this repo;
+#   * SSM Run Command instead of ssh-action, because the UK host has no SSH port
+#     and no key pair;
+#   * deploys the exact tag that was just built, rather than :latest, so a
+#     rollback is a tag away and two deploys cannot race.
+#
+# Images go to the same ap-southeast-1 registry, tagged uk-<sha>, leaving
+# Singapore's :latest and :<sha> untouched.
+
+on:
+    workflow_dispatch:
+        inputs:
+            ref:
+                description: "Branch, tag, or SHA to deploy"
+                required: true
+                default: main
+            image_tag:
+                description: "Existing image tag to deploy. Leave blank to build from ref."
+                required: false
+                default: ""
+
+concurrency:
+    group: chatwonder-uk-deploy
+    cancel-in-progress: false
+
+env:
+    ECR_REPOSITORY: scl-core-v2
+    ECR_REGION: ap-southeast-1 # where the images live
+    AWS_REGION: eu-west-2 # where the UK host runs
+    ACCOUNT_ID: "617163942417"
+    INSTANCE_ID: i-0c9dd23726b872041
+    CONTAINER: scl-core-v2
+
+jobs:
+    deploy:
+        name: Build, Push & Deploy (UK)
+        # x86_64: the chat-wonder UK host is t3.large, unlike the Graviton boxes
+        # ilovelawyer runs on.
+        runs-on: ubuntu-latest
+        environment: uk
+
+        permissions:
+            id-token: write
+            contents: read
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.inputs.ref }}
+
+            - name: Configure AWS credentials (OIDC)
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: ${{ vars.AWS_UK_DEPLOY_ROLE_ARN }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Resolve image tag
+              id: tag
+              run: |
+                  TAG="${{ github.event.inputs.image_tag }}"
+                  [ -z "$TAG" ] && TAG="uk-${{ github.sha }}"
+                  echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+                  echo "registry=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.ECR_REGION }}.amazonaws.com" >> "$GITHUB_OUTPUT"
+                  echo "Deploying ${{ env.ECR_REPOSITORY }}:$TAG"
+
+            # The registry is in ap-southeast-1, so log in against that region.
+            - name: Login to Amazon ECR
+              run: |
+                  aws ecr get-login-password --region "${{ env.ECR_REGION }}" \
+                    | docker login --username AWS --password-stdin "${{ steps.tag.outputs.registry }}"
+
+            - name: Build and push Docker image
+              if: ${{ github.event.inputs.image_tag == '' }}
+              env:
+                  IMAGE: ${{ steps.tag.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.tag.outputs.tag }}
+              run: |
+                  docker build -t "$IMAGE" .
+                  docker push "$IMAGE"
+
+            - name: Deploy via SSM
+              id: send
+              env:
+                  REGISTRY: ${{ steps.tag.outputs.registry }}
+                  TAG: ${{ steps.tag.outputs.tag }}
+              run: |
+                  set -euo pipefail
+                  IMAGE="${REGISTRY}/${{ env.ECR_REPOSITORY }}:${TAG}"
+
+                  COMMANDS=(
+                    "set -euo pipefail"
+                    "aws ecr get-login-password --region ${{ env.ECR_REGION }} | docker login --username AWS --password-stdin ${REGISTRY}"
+                    "docker pull ${IMAGE}"
+                    "docker rm -f ${{ env.CONTAINER }} 2>/dev/null || true"
+                    "docker run -d --name ${{ env.CONTAINER }} --restart unless-stopped --network host ${IMAGE}"
+                    "docker image prune -f"
+                  )
+
+                  # jq builds the JSON, so a quote inside any command cannot break it.
+                  PARAMS=$(printf '%s\n' "${COMMANDS[@]}" | jq -R . | jq -sc '{commands: .}')
+
+                  CMD_ID=$(aws ssm send-command \
+                    --region "${{ env.AWS_REGION }}" \
+                    --instance-ids "${{ env.INSTANCE_ID }}" \
+                    --document-name AWS-RunShellScript \
+                    --comment "deploy ${{ env.CONTAINER }} ${TAG}" \
+                    --timeout-seconds 900 \
+                    --parameters "${PARAMS}" \
+                    --query Command.CommandId --output text)
+
+                  echo "command_id=$CMD_ID" >> "$GITHUB_OUTPUT"
+                  echo "SSM command: $CMD_ID"
+
+            - name: Wait for the deploy
+              run: |
+                  set -uo pipefail
+                  STATUS=Pending
+                  for i in $(seq 1 90); do
+                    STATUS=$(aws ssm get-command-invocation \
+                      --region "${{ env.AWS_REGION }}" \
+                      --command-id "${{ steps.send.outputs.command_id }}" \
+                      --instance-id "${{ env.INSTANCE_ID }}" \
+                      --query Status --output text 2>/dev/null || echo Pending)
+                    echo "status: $STATUS"
+                    case "$STATUS" in Success|Failed|Cancelled|TimedOut) break ;; esac
+                    sleep 10
+                  done
+
+                  aws ssm get-command-invocation \
+                    --region "${{ env.AWS_REGION }}" \
+                    --command-id "${{ steps.send.outputs.command_id }}" \
+                    --instance-id "${{ env.INSTANCE_ID }}" \
+                    --query '[StandardOutputContent,StandardErrorContent]' --output text
+
+                  [ "$STATUS" = "Success" ] || { echo "::error::deploy $STATUS"; exit 1; }
+
+            - name: Confirm the container is running
+              run: |
+                  set -uo pipefail
+                  CMD_ID=$(aws ssm send-command \
+                    --region "${{ env.AWS_REGION }}" \
+                    --instance-ids "${{ env.INSTANCE_ID }}" \
+                    --document-name AWS-RunShellScript \
+                    --parameters 'commands=["docker ps --filter name=${{ env.CONTAINER }} --format \"{{.Names}} {{.Status}}\""]' \
+                    --query Command.CommandId --output text)
+                  sleep 8
+                  aws ssm get-command-invocation \
+                    --region "${{ env.AWS_REGION }}" \
+                    --command-id "$CMD_ID" \
+                    --instance-id "${{ env.INSTANCE_ID }}" \
+                    --query StandardOutputContent --output text
