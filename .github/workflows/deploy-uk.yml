@@ -155,3 +155,39 @@ jobs:
                     --command-id "$CMD_ID" \
                     --instance-id "${{ env.INSTANCE_ID }}" \
                     --query StandardOutputContent --output text
+
+            # `docker ps` above only shows the container started. This shows the tracer is actually serving:
+            # it answers GET / on :8004 once uvicorn is up. If it never does, the job fails and prints the
+            # container's last log lines, so a crash-looping container is not reported as a good deploy.
+            - name: Check the tracer answers on :8004
+              run: |
+                  set -uo pipefail
+                  PARAMS=$(jq -n --arg cmd 'for i in $(seq 1 15); do curl -sf -o /dev/null http://127.0.0.1:8004/ && echo "tracer up on :8004" && exit 0; sleep 2; done; echo "tracer did not answer on :8004"; docker logs --tail 50 ${{ env.CONTAINER }}; exit 1' '{commands: [$cmd]}')
+
+                  CMD_ID=$(aws ssm send-command \
+                    --region "${{ env.AWS_REGION }}" \
+                    --instance-ids "${{ env.INSTANCE_ID }}" \
+                    --document-name AWS-RunShellScript \
+                    --comment "check ${{ env.CONTAINER }} answers on :8004" \
+                    --timeout-seconds 120 \
+                    --parameters "${PARAMS}" \
+                    --query Command.CommandId --output text)
+
+                  STATUS=Pending
+                  for i in $(seq 1 24); do
+                    STATUS=$(aws ssm get-command-invocation \
+                      --region "${{ env.AWS_REGION }}" \
+                      --command-id "$CMD_ID" \
+                      --instance-id "${{ env.INSTANCE_ID }}" \
+                      --query Status --output text 2>/dev/null || echo Pending)
+                    case "$STATUS" in Success|Failed|Cancelled|TimedOut) break ;; esac
+                    sleep 5
+                  done
+
+                  aws ssm get-command-invocation \
+                    --region "${{ env.AWS_REGION }}" \
+                    --command-id "$CMD_ID" \
+                    --instance-id "${{ env.INSTANCE_ID }}" \
+                    --query '[StandardOutputContent,StandardErrorContent]' --output text
+
+                  [ "$STATUS" = "Success" ] || { echo "::error::tracer check $STATUS"; exit 1; }
